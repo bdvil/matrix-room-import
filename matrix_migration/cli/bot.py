@@ -10,10 +10,10 @@ from aiohttp import ClientResponse, ClientSession, web
 async def ping(hs_url: str, as_id: str, as_token: str) -> ClientResponse | None:
     ping_url = hs_url + f"/_matrix/client/v1/appservice/{as_id}/ping"
     headers = {"Authorization": f"Bearer {as_token}"}
-    # data = {"transaction_id": f"mami-{uuid4()}"}
-    async with ClientSession(headers=headers) as session:
+    data = {}
+    async with ClientSession() as session:
         print(f"POSTING here: {ping_url})")
-        async with session.post(ping_url) as response:
+        async with session.post(ping_url, headers=headers, json=data) as response:
             print("PING RESP")
             print(response)
             data = await response.json()
