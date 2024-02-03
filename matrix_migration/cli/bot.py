@@ -18,6 +18,7 @@ async def ping(hs_url: str, as_id: str, as_token: str):
 
 
 def check_headers(request: Request, hs_token: str) -> bool:
+    print(request.headers)
     return ("Authorization" in request.headers.keys()
             and request.headers["Authorization"] == f"Bearer {hs_token}")
 
