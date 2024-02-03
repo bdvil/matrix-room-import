@@ -8,13 +8,16 @@ from aiohttp import ClientResponse, ClientSession, web
 
 
 async def ping(hs_url: str, as_id: str, as_token: str) -> ClientResponse | None:
-    # ping_url = hs_url + f"/_matrix/client/v1/appservice/{as_id}/ping"
-    ping_url = "http://localhost:8181/log"
-    headers = {"Authorization": f"Bearer {as_token}"}
-    data = {"transaction_id": "mami"}
+    ping_url = hs_url + f"/_matrix/client/v1/appservice/{as_id}/ping"
+    # ping_url = "http://localhost:8181/log"
+    headers = {
+        "Authorization": f"Bearer {as_token}",
+        "Content-Type": "application/json",
+    }
+    data = '{"transaction_id": "mami"}'
     async with ClientSession() as session:
         print(f"POSTING here: {ping_url})")
-        async with session.post(ping_url, headers=headers, json=data) as response:
+        async with session.post(ping_url, headers=headers, data=data) as response:
             print("PING RESP")
             print(response)
             data = await response.json()
