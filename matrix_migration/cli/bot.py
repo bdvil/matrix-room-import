@@ -8,9 +8,10 @@ from aiohttp import ClientResponse, ClientSession, web
 
 
 async def ping(hs_url: str, as_id: str, as_token: str) -> ClientResponse | None:
-    ping_url = hs_url + f"/_matrix/client/v1/appservice/{as_id}/ping"
+    # ping_url = hs_url + f"/_matrix/client/v1/appservice/{as_id}/ping"
+    ping_url = "http://localhost:8181/log"
     headers = {"Authorization": f"Bearer {as_token}"}
-    data = {}
+    data = {"transaction_id": "mami"}
     async with ClientSession() as session:
         print(f"POSTING here: {ping_url})")
         async with session.post(ping_url, headers=headers, json=data) as response:
@@ -42,6 +43,15 @@ async def handle(request: Request) -> Response:
     return Response()
 
 
+async def handle_log(request: Request) -> Response:
+    print("HANDLE LOG")
+    print(request.url)
+    print(request.headers)
+    data = await request.json()
+    print(data)
+    return Response()
+
+
 async def handle_test(request: Request) -> Response:
     try:
         config: Config = request.app["config"]
@@ -61,6 +71,7 @@ def serve():
     app["config"] = config
     app.add_routes([
         web.get("/test", handle_test),
+        web.post("/log", handle_log),
         web.put("/_matrix/app/v1/transactions/{txnId}", handle),
         web.post("/_matrix/app/v1/ping", handle_ping),
         web.get("/_matrix/app/v1/users/{userId}", handle),
