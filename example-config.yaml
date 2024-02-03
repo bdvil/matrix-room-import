@@ -8,6 +8,8 @@ homeserver_to:
     bot_user: "@migrationbot:new-example.com"
 
 
+as_token: set here
+hs_tokne: set here
 # Rooms with these user id will not be migrated (e.g. rooms from bridges)
 filter_room_with: []
 port: 8181

@@ -17,6 +17,8 @@ class Config(BaseModel):
     homeserver_from: HomeServer
     homeserver_to: HomeServer
 
+    as_token: str
+    hs_token: str
     # Rooms with these user id will not be migrated (e.g. rooms from bridges)
     filter_room_with: list[str]
     port: int
