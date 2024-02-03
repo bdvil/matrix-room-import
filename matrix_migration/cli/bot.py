@@ -35,16 +35,26 @@ async def handle(request: Request) -> Response:
     return Response()
 
 
+async def handle_test(request: Request) -> Response:
+    try:
+        config: Config = request.app["config"]
+        resp = await ping(config.homeserver_from.url, config.as_id, config.as_token)
+        print(resp)
+    except: 
+        return Response(status=500)
+    return Response(status=200)
+
+
 @click.command("serve")
 def serve():
     config = load_config()
     print(config.model_dump())
-    asyncio.run(ping(config.homeserver_from.url, config.as_id, config.as_token))
     app = Application()
     app["config"] = config
     app.add_routes([
+        web.get("test", handle_test),
         web.put("/_matrix/app/v1/transactions/{txnId}", handle),
-        web.post("/_matrix/app/v1/ping", handle),
+        web.post("/_matrix/app/v1/ping", handle_ping),
         web.get("/_matrix/app/v1/users/{userId}", handle),
         web.get("/_matrix/app/v1/rooms/{roomAlias}", handle),
         web.get("/_matrix/app/v1/thirdparty/location", handle),
