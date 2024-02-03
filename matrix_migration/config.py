@@ -6,11 +6,8 @@ from matrix_migration import PROJECT_DIR
 
 
 class HomeServer(BaseModel):
-    # The address to connect to the homeserver
     url: str
     server_name: str
-
-    bot_user: str
 
 
 class Config(BaseModel):
@@ -19,6 +16,8 @@ class Config(BaseModel):
 
     as_token: str
     hs_token: str
+    as_id: str
+
     # Rooms with these user id will not be migrated (e.g. rooms from bridges)
     filter_room_with: list[str]
     port: int
