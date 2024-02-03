@@ -10,3 +10,4 @@ homeserver_to:
 
 # Rooms with these user id will not be migrated (e.g. rooms from bridges)
 filter_room_with: []
+port: 8181

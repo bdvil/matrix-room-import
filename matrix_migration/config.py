@@ -19,6 +19,7 @@ class Config(BaseModel):
 
     # Rooms with these user id will not be migrated (e.g. rooms from bridges)
     filter_room_with: list[str]
+    port: int
 
 
 def load_config() -> Config:
