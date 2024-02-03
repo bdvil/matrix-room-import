@@ -5,16 +5,18 @@ import click
 from uuid import uuid4
 
 from matrix_migration.config import Config, load_config
-from aiohttp import ClientSession, web
+from aiohttp import ClientResponse, ClientSession, web
 
 
-async def ping(hs_url: str, as_id: str, as_token: str):
+async def ping(hs_url: str, as_id: str, as_token: str) -> ClientResponse | None:
     ping_url = hs_url + f"/_matrix/client/v1/appservice/{as_id}/ping"
     headers = {"Authorization": f"Bearer {as_token}"}
     data = {"transaction_id": f"mami-{uuid4()}"}
     async with ClientSession(headers=headers) as session:
         async with session.post(ping_url, json=data) as response:
+            print("PING RESP")
             print(response)
+            return response
 
 
 def check_headers(request: Request, hs_token: str) -> bool:
@@ -31,6 +33,7 @@ async def handle_ping(request: Request) -> Response:
 
 
 async def handle(request: Request) -> Response:
+    print("HANDLE")
     print(request.query_string)
     return Response()
 
@@ -39,6 +42,7 @@ async def handle_test(request: Request) -> Response:
     try:
         config: Config = request.app["config"]
         resp = await ping(config.homeserver_from.url, config.as_id, config.as_token)
+        print("Resp")
         print(resp)
     except: 
         return Response(status=500)
@@ -52,7 +56,7 @@ def serve():
     app = Application()
     app["config"] = config
     app.add_routes([
-        web.get("test", handle_test),
+        web.get("/test", handle_test),
         web.put("/_matrix/app/v1/transactions/{txnId}", handle),
         web.post("/_matrix/app/v1/ping", handle_ping),
         web.get("/_matrix/app/v1/users/{userId}", handle),
