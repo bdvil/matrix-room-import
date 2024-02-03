@@ -1,4 +1,3 @@
-import asyncio
 from aiohttp.web import Application, Request, Response, run_app
 import click
 
@@ -13,9 +12,13 @@ async def ping(hs_url: str, as_id: str, as_token: str) -> ClientResponse | None:
     headers = {"Authorization": f"Bearer {as_token}"}
     data = {"transaction_id": f"mami-{uuid4()}"}
     async with ClientSession(headers=headers) as session:
+        print(f"POSTING here: {ping_url})")
         async with session.post(ping_url, json=data) as response:
             print("PING RESP")
             print(response)
+            data = await response.json()
+            print("DATA")
+            print(data)
             return response
 
 
@@ -26,6 +29,7 @@ def check_headers(request: Request, hs_token: str) -> bool:
 
 
 async def handle_ping(request: Request) -> Response:
+    print("HANDLE PING")
     config: Config = request.app["config"]
     if check_headers(request, config.hs_token):
         return Response(status=200)
@@ -34,7 +38,7 @@ async def handle_ping(request: Request) -> Response:
 
 async def handle(request: Request) -> Response:
     print("HANDLE")
-    print(request.query_string)
+    print(request.url)
     return Response()
 
 
@@ -42,7 +46,7 @@ async def handle_test(request: Request) -> Response:
     try:
         config: Config = request.app["config"]
         resp = await ping(config.homeserver_from.url, config.as_id, config.as_token)
-        print("Resp")
+        print("TEST - RESP")
         print(resp)
     except: 
         return Response(status=500)
