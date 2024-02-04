@@ -37,9 +37,9 @@ class ClientEvent(BaseModel):
     origin_server_ts: int
     room_id: str
     sender: str
-    state_key: str
+    state_key: str | None = None
     type: str
-    unsigned: UnsignedData
+    unsigned: UnsignedData | None = None
 
 
 class ClientEvents(BaseModel):
