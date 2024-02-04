@@ -83,11 +83,17 @@ async def set_displayname(
             return response
 
 
-async def create_profile_if_missing(
+async def update_bot_profile(
     hs_url: str, user_id: str, as_token: str, displayname: str
 ) -> ClientResponse | None:
     response = await profile(hs_url, user_id, as_token)
     if response is None or response.status == 404:
+        response = await set_displayname(
+            hs_url, user_id, as_token, displayname
+        )
+    assert response is not None
+    body = await response.json()
+    if body["displayname"] != displayname:
         response = await set_displayname(
             hs_url, user_id, as_token, displayname
         )
