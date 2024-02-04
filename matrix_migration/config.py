@@ -1,4 +1,5 @@
 import shutil
+
 import yaml
 from pydantic import BaseModel
 
@@ -17,6 +18,7 @@ class Config(BaseModel):
     as_token: str
     hs_token: str
     as_id: str
+    bot_user: str
 
     # Rooms with these user id will not be migrated (e.g. rooms from bridges)
     filter_room_with: list[str]
