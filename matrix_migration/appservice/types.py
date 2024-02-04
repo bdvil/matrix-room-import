@@ -2,6 +2,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from matrix_migration.appservice.events import RoomJoinRules, RoomMessage
+
 
 class Signed(BaseModel):
     mxid: str
@@ -32,7 +34,7 @@ class UnsignedData(BaseModel):
 
 
 class ClientEvent(BaseModel):
-    content: Any
+    content: RoomJoinRules | RoomMessage | Any
     event_id: str
     origin_server_ts: int
     room_id: str

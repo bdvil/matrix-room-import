@@ -8,6 +8,7 @@ import matrix_migration.appservice.client as client
 import matrix_migration.appservice.server as server
 from matrix_migration import LOGGER
 from matrix_migration.config import Config, load_config
+from matrix_migration.store import RAMStore
 
 
 async def handle(request: Request) -> Response:
@@ -54,6 +55,8 @@ def serve():
     LOGGER.debug("CONFIG: %s", config.model_dump())
     app = Application()
     app["config"] = config
+    app["txn_store"] = RAMStore()
+
     app.add_routes(
         [
             web.get("/test", handle_test),
