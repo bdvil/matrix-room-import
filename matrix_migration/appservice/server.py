@@ -29,6 +29,7 @@ async def handle_transaction(request: web.Request) -> web.Response:
         "SERVER transaction data: %s",
         {"url": request.url, "headers": request.headers},
     )
+    print("oui")
     config: Config = request.app["config"]
     if not check_headers(request, config.hs_token):
         return web.json_response({}, status=403)

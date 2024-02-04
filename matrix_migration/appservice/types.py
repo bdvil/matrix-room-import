@@ -39,7 +39,7 @@ class ClientEvent(BaseModel):
     sender: str
     state_key: str | None = None
     type: str
-    unsigned: UnsignedData | None = None
+    unsigned: Any | None = None
 
 
 class ClientEvents(BaseModel):
