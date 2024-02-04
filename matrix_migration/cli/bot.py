@@ -3,21 +3,22 @@ import click
 
 from uuid import uuid4
 
+import json
 from matrix_migration.config import Config, load_config
 from aiohttp import ClientResponse, ClientSession, web
 
 
-async def ping(hs_url: str, as_id: str, as_token: str) -> ClientResponse | None:
+async def ping(hs_url: str, as_id: str, as_token: str, transaction_id: str | None = None) -> ClientResponse | None:
     ping_url = hs_url + f"/_matrix/client/v1/appservice/{as_id}/ping"
-    # ping_url = "http://localhost:8181/log"
     headers = {
         "Authorization": f"Bearer {as_token}",
-        "Content-Type": "application/json",
     }
-    data = '{"transaction_id": "mami"}'
+    data = {}
+    if transaction_id is not None:
+        data["transaction_id"] = transaction_id
     async with ClientSession() as session:
-        print(f"POSTING here: {ping_url})")
-        async with session.post(ping_url, headers=headers, data=data) as response:
+        print(f"POSTING here: {ping_url}")
+        async with session.post(ping_url, headers=headers, json=data) as response:
             print("PING RESP")
             print(response)
             data = await response.json()
@@ -36,8 +37,8 @@ async def handle_ping(request: Request) -> Response:
     print("HANDLE PING")
     config: Config = request.app["config"]
     if check_headers(request, config.hs_token):
-        return Response(status=200)
-    return Response(status=403)
+        return web.json_response({}, status=200)
+    return web.json_response({}, status=403)
 
 
 async def handle(request: Request) -> Response:
@@ -50,6 +51,7 @@ async def handle_log(request: Request) -> Response:
     print("HANDLE LOG")
     print(request.url)
     print(request.headers)
+    print("DATA")
     data = await request.json()
     print(data)
     return Response()
