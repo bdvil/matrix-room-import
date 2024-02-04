@@ -19,11 +19,9 @@ class Client:
         self.hs_url = hs_url
         self.as_token = as_token
         self.as_id = as_id
-        main_headers = {
+        self.headers = {
             "Authorization": f"Bearer {as_token}",
         }
-
-        self.session = ClientSession(headers=main_headers)
 
     async def ping(
         self,
@@ -34,50 +32,54 @@ class Client:
         if transaction_id is not None:
             data["transaction_id"] = transaction_id
             LOGGER.info("CLIENT ping")
-            async with self.session.post(url, json=data) as response:
-                data = await response.json()
-                LOGGER.debug(
-                    "CLIENT ping data: %s",
-                    {"headers": response.headers, "body": data},
-                )
-                return response
+            async with ClientSession(headers=self.headers) as session:
+                async with session.post(url, json=data) as response:
+                    data = await response.json()
+                    LOGGER.debug(
+                        "CLIENT ping data: %s",
+                        {"headers": response.headers, "body": data},
+                    )
+                    return response
 
     async def whoami(self, user_id: str) -> ClientResponse | None:
         url = matrix_api.whoami(self.hs_url, user_id)
         LOGGER.info("CLIENT whoami")
-        async with self.session.get(url, json={}) as response:
-            data = await response.json()
-            LOGGER.debug(
-                "CLIENT whoami data: %s",
-                {"headers": response.headers, "body": data},
-            )
-            return response
+        async with ClientSession(headers=self.headers) as session:
+            async with session.get(url, json={}) as response:
+                data = await response.json()
+                LOGGER.debug(
+                    "CLIENT whoami data: %s",
+                    {"headers": response.headers, "body": data},
+                )
+                return response
 
     async def profile(self, user_id: str) -> ClientResponse | None:
         url = matrix_api.profile(self.hs_url, user_id)
         LOGGER.info("CLIENT profile")
-        async with self.session.get(url, json={}) as response:
-            data = await response.json()
-            LOGGER.debug(
-                "CLIENT profile data: %s",
-                {"headers": response.headers, "body": data},
-            )
-            return response
+        async with ClientSession(headers=self.headers) as session:
+            async with session.get(url, json={}) as response:
+                data = await response.json()
+                LOGGER.debug(
+                    "CLIENT profile data: %s",
+                    {"headers": response.headers, "body": data},
+                )
+                return response
 
     async def set_displayname(
         self, user_id: str, displayname: str
     ) -> ClientResponse | None:
         url = matrix_api.profile_displayname(self.hs_url, user_id)
         LOGGER.info("CLIENT set displayname")
-        async with self.session.put(
-            url, json={"displayname": displayname}
-        ) as response:
-            data = await response.json()
-            LOGGER.debug(
-                "CLIENT set displayname data: %s",
-                {"headers": response.headers, "body": data},
-            )
-            return response
+        async with ClientSession(headers=self.headers) as session:
+            async with session.put(
+                url, json={"displayname": displayname}
+            ) as response:
+                data = await response.json()
+                LOGGER.debug(
+                    "CLIENT set displayname data: %s",
+                    {"headers": response.headers, "body": data},
+                )
+                return response
 
     async def update_bot_profile(
         self, user_id: str, displayname: str
@@ -96,16 +98,17 @@ class Client:
     ) -> ClientResponse | None:
         url = matrix_api.room_join(self.hs_url, room_id, server_name)
         LOGGER.info("CLIENT join_room")
-        async with self.session.put(
-            url, json=JoinRoomBody().model_dump()
-        ) as response:
-            if response.status == 200:
-                data = JoinRoomResponse(**await response.json())
-                LOGGER.debug(data)
-                return response
-            else:
-                data = ErrorResponse(**await response.json())
-                LOGGER.debug(data)
+        async with ClientSession(headers=self.headers) as session:
+            async with session.put(
+                url, json=JoinRoomBody().model_dump()
+            ) as response:
+                if response.status == 200:
+                    data = JoinRoomResponse(**await response.json())
+                    LOGGER.debug(data)
+                    return response
+                else:
+                    data = ErrorResponse(**await response.json())
+                    LOGGER.debug(data)
 
     async def send_event(
         self,
@@ -119,21 +122,22 @@ class Client:
             self.hs_url, room_id, event_type, txn_id
         )
         LOGGER.info("CLIENT send_event")
-        async with self.session.put(
-            url, json={"body": body, "msgtype": "m.text"}
-        ) as response:
-            if response.status == 200:
-                data = await response.json()
-                event_id = data["event_id"]
-                LOGGER.debug(
-                    "CLIENT send_event: %s",
-                    {"headers": response.headers, "event_id": event_id},
-                )
-                return event_id
-            else:
-                data = await response.json()
-                LOGGER.debug(
-                    "CLIENT send_event error data: %s",
-                    {"headers": response.headers, "body": data},
-                )
-                return response
+        async with ClientSession(headers=self.headers) as session:
+            async with session.put(
+                url, json={"body": body, "msgtype": "m.text"}
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    event_id = data["event_id"]
+                    LOGGER.debug(
+                        "CLIENT send_event: %s",
+                        {"headers": response.headers, "event_id": event_id},
+                    )
+                    return event_id
+                else:
+                    data = await response.json()
+                    LOGGER.debug(
+                        "CLIENT send_event error data: %s",
+                        {"headers": response.headers, "body": data},
+                    )
+                    return response
