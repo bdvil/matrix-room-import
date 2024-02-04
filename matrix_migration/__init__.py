@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
-LOGGING_LEVEL = logging.INFO
+LOGGING_LEVEL = logging.DEBUG
 LOGGER = logging.getLogger("mami")
 
 handler = logging.StreamHandler()
