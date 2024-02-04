@@ -33,7 +33,8 @@ async def handle_transaction(request: web.Request) -> web.Response:
     if not check_headers(request, config.hs_token):
         return web.json_response({}, status=403)
     txn_id = request.match_info["txnId"]
-    events = types.ClientEvent(**await request.json())
-    LOGGER.debug(f"Transaction {txn_id} type= {events.type}")
+    events = types.client_events.validate_python(await request.json())
+    for event in events:
+        LOGGER.debug(f"Transaction {txn_id} type= {event.type}")
 
     return web.json_response({}, status=200)
