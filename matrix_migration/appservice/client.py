@@ -133,7 +133,7 @@ async def send_event(
                     {"headers": response.headers, "event_id": event_id},
                 )
                 return event_id
-            elif response.status == 400:
+            else:
                 data = await response.json()
                 LOGGER.debug(
                     "CLIENT send_event error data: %s",
