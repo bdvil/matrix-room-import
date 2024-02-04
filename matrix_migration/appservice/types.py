@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel
 
 
 class Signed(BaseModel):
@@ -42,4 +42,5 @@ class ClientEvent(BaseModel):
     unsigned: UnsignedData
 
 
-client_events = TypeAdapter(list[ClientEvent])
+class ClientEvents(BaseModel):
+    events: list[ClientEvent]
