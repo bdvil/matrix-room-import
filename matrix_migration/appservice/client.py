@@ -1,6 +1,12 @@
+from uuid import uuid4
+
 from aiohttp import ClientResponse, ClientSession
 
 from matrix_migration import LOGGER, matrix_api
+
+
+def new_txn() -> str:
+    return str(uuid4())
 
 
 async def ping(
@@ -99,3 +105,38 @@ async def update_bot_profile(
         )
     response = await profile(hs_url, user_id, as_token)
     return response
+
+
+async def send_event(
+    hs_url: str,
+    as_token: str,
+    event_type: str,
+    room_id: str,
+    body: str,
+    txn_id: str | None = None,
+) -> ClientResponse | None:
+    txn_id = txn_id or new_txn()
+    url = matrix_api.room_send_event(hs_url, room_id, event_type, txn_id)
+    headers = {
+        "Authorization": f"Bearer {as_token}",
+    }
+    async with ClientSession() as session:
+        LOGGER.info("CLIENT send_event")
+        async with session.put(
+            url, headers=headers, json={"body": body, "msgtype": "m.text"}
+        ) as response:
+            if response.status == 200:
+                data = await response.json()
+                event_id = data["event_id"]
+                LOGGER.debug(
+                    "CLIENT send_event: %s",
+                    {"headers": response.headers, "event_id": event_id},
+                )
+                return event_id
+            elif response.status == 400:
+                data = await response.json()
+                LOGGER.debug(
+                    "CLIENT send_event error data: %s",
+                    {"headers": response.headers, "body": data},
+                )
+                return response

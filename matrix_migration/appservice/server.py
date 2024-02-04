@@ -2,6 +2,7 @@ from aiohttp import web
 
 import matrix_migration.appservice.types as types
 from matrix_migration import LOGGER
+from matrix_migration.appservice.client import send_event
 from matrix_migration.config import Config
 from matrix_migration.store import Store
 
@@ -44,6 +45,19 @@ async def handle_transaction(request: web.Request) -> web.Response:
     for event in events.events:
         LOGGER.debug(f"Transaction {txn_id} type= {event.type}")
         LOGGER.debug("%s", event.content)
+
+        if (
+            event.type == "m.room.message"
+            and event.content.body == "Plip MAMI"
+        ):
+            resp = await send_event(
+                config.homeserver_from.url,
+                config.as_token,
+                "m.message",
+                event.room_id,
+                "Plop",
+            )
+            LOGGER.debug(resp)
 
     txn_store.append(txn_id)
     return web.json_response({}, status=200)
