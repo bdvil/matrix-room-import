@@ -58,7 +58,10 @@ def serve():
         [
             web.get("/test", handle_test),
             web.post("/log", handle_log),
-            web.put("/_matrix/app/v1/transactions/{txnId}", handle),
+            web.put(
+                "/_matrix/app/v1/transactions/{txnId}",
+                server.handle_transaction,
+            ),
             web.post("/_matrix/app/v1/ping", server.handle_ping),
             web.get("/_matrix/app/v1/users/{userId}", handle),
             web.get("/_matrix/app/v1/rooms/{roomAlias}", handle),
@@ -70,7 +73,7 @@ def serve():
         ]
     )
     run(
-        client.create_profile_if_missing(
+        client.update_bot_profile(
             config.homeserver_from.url,
             config.bot_user,
             config.as_token,
