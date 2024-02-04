@@ -43,3 +43,21 @@ async def whoami(
                 {"headers": response.headers, "body": data},
             )
             return response
+
+
+async def profile(
+    hs_url: str, user_id: str, as_token: str
+) -> ClientResponse | None:
+    url = matrix_api.profile(hs_url, user_id)
+    headers = {
+        "Authorization": f"Bearer {as_token}",
+    }
+    async with ClientSession() as session:
+        LOGGER.info("CLIENT profile")
+        async with session.get(url, headers=headers, json={}) as response:
+            data = await response.json()
+            LOGGER.debug(
+                "CLIENT profile data: %s",
+                {"headers": response.headers, "body": data},
+            )
+            return response

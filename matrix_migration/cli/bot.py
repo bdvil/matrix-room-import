@@ -29,7 +29,7 @@ async def handle_log(request: Request) -> Response:
 async def handle_test(request: Request) -> Response:
     try:
         config: Config = request.app["config"]
-        resp = await client.whoami(
+        resp = await client.profile(
             config.homeserver_from.url, config.bot_user, config.as_token
         )
         LOGGER.info(

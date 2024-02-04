@@ -14,3 +14,7 @@ def ping(hs_url: str, as_id: str):
 def whoami(hs_url: str, user_id: str):
     query = parse.urlencode({"user_id": user_id})
     return sanitize_url(hs_url) + f"/_matrix/client/v3/account/whoami?{query}"
+
+
+def profile(hs_url: str, user_id: str):
+    return sanitize_url(hs_url) + f"/_matrix/client/v3/profile/{user_id}"
