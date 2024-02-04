@@ -27,6 +27,16 @@ def profile_displayname(hs_url: str, user_id: str) -> str:
     )
 
 
+def room_join(
+    hs_url: str, room_id: str, server_name: str | None = None
+) -> str:
+    url = sanitize_url(hs_url) + f"/_matrix/client/v3/join/{room_id}"
+    if server_name is not None:
+        query = parse.urlencode({"server_name": server_name})
+        url += f"?{query}"
+    return url
+
+
 def room_send_event(
     hs_url: str, room_id: str, event_type: str, txn_id: str
 ) -> str:

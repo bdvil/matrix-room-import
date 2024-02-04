@@ -1,8 +1,15 @@
+from collections.abc import Mapping
 from typing import Any
 
 from pydantic import BaseModel
 
 from matrix_migration.appservice.events import RoomJoinRules, RoomMessage
+
+
+class ErrorResponse(BaseModel):
+    errcode: str
+    error: str | None = None
+    retry_after_ms: int | None = None
 
 
 class Signed(BaseModel):
@@ -46,3 +53,19 @@ class ClientEvent(BaseModel):
 
 class ClientEvents(BaseModel):
     events: list[ClientEvent]
+
+
+class ThirdPartySigned(BaseModel):
+    mxid: str
+    sender: str
+    signatures: Mapping[str, Mapping[str, str]]
+    token: str
+
+
+class JoinRoomBody(BaseModel):
+    reason: str | None = None
+    third_party_signed: ThirdPartySigned | None = None
+
+
+class JoinRoomResponse(BaseModel):
+    room_id: str

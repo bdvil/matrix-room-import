@@ -4,9 +4,9 @@ import click
 from aiohttp import web
 from aiohttp.web import Application, Request, Response, run_app
 
-import matrix_migration.appservice.client as client
 import matrix_migration.appservice.server as server
 from matrix_migration import LOGGER
+from matrix_migration.appservice.client import Client
 from matrix_migration.config import Config, load_config
 from matrix_migration.store import RAMStore
 
@@ -32,9 +32,8 @@ async def handle_log(request: Request) -> Response:
 async def handle_test(request: Request) -> Response:
     try:
         config: Config = request.app["config"]
-        resp = await client.profile(
-            config.homeserver_from.url, config.bot_user, config.as_token
-        )
+        client: Client = request.app["client"]
+        resp = await client.profile(config.bot_user)
         LOGGER.info(
             "TEST success: %s",
             {
@@ -56,7 +55,8 @@ def serve():
     app = Application()
     app["config"] = config
     app["txn_store"] = RAMStore()
-
+    client = Client(config.homeserver_from.url, config.as_token, config.as_id)
+    app["client"] = client
     app.add_routes(
         [
             web.get("/test", handle_test),
@@ -75,12 +75,5 @@ def serve():
             web.get("/_matrix/app/v1/thirdparty/user/{protocol}", handle),
         ]
     )
-    run(
-        client.update_bot_profile(
-            config.homeserver_from.url,
-            config.bot_user,
-            config.as_token,
-            config.bot_name,
-        )
-    )
+    run(client.update_bot_profile(config.bot_user, config.bot_name))
     run_app(app, port=config.port)
