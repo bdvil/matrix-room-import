@@ -1,3 +1,5 @@
+from asyncio import run
+
 import click
 from aiohttp import web
 from aiohttp.web import Application, Request, Response, run_app
@@ -66,5 +68,13 @@ def serve():
             web.get("/_matrix/app/v1/thirdparty/user", handle),
             web.get("/_matrix/app/v1/thirdparty/user/{protocol}", handle),
         ]
+    )
+    run(
+        client.create_profile_if_missing(
+            config.homeserver_from.url,
+            config.bot_user,
+            config.as_token,
+            "Mami Test",
+        )
     )
     run_app(app, port=config.port)

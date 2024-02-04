@@ -18,3 +18,10 @@ def whoami(hs_url: str, user_id: str):
 
 def profile(hs_url: str, user_id: str):
     return sanitize_url(hs_url) + f"/_matrix/client/v3/profile/{user_id}"
+
+
+def profile_displayname(hs_url: str, user_id: str):
+    return (
+        sanitize_url(hs_url)
+        + f"/_matrix/client/v3/profile/{user_id}/displayname"
+    )

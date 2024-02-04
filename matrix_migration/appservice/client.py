@@ -61,3 +61,35 @@ async def profile(
                 {"headers": response.headers, "body": data},
             )
             return response
+
+
+async def set_displayname(
+    hs_url: str, user_id: str, as_token: str, displayname: str
+) -> ClientResponse | None:
+    url = matrix_api.profile_displayname(hs_url, user_id)
+    headers = {
+        "Authorization": f"Bearer {as_token}",
+    }
+    async with ClientSession() as session:
+        LOGGER.info("CLIENT set displayname")
+        async with session.put(
+            url, headers=headers, json={"displayname": displayname}
+        ) as response:
+            data = await response.json()
+            LOGGER.debug(
+                "CLIENT set displayname data: %s",
+                {"headers": response.headers, "body": data},
+            )
+            return response
+
+
+async def create_profile_if_missing(
+    hs_url: str, user_id: str, as_token: str, displayname: str
+) -> ClientResponse | None:
+    response = await profile(hs_url, user_id, as_token)
+    if response is None or response.status == 404:
+        response = await set_displayname(
+            hs_url, user_id, as_token, displayname
+        )
+    response = await profile(hs_url, user_id, as_token)
+    return response
