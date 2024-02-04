@@ -26,7 +26,7 @@ async def ping(
         ) as response:
             data = await response.json()
             LOGGER.debug(
-                "CLIENT ping data",
+                "CLIENT ping data: %s",
                 {"headers": response.headers, "body": data},
             )
             return response
@@ -42,7 +42,7 @@ def check_headers(request: Request, hs_token: str) -> bool:
 async def handle_ping(request: Request) -> Response:
     body = await request.json()
     LOGGER.debug(
-        "SERVER ping data",
+        "SERVER ping data: %s",
         {"url": request.url, "headers": request.headers, "body": body},
     )
     config: Config = request.app["config"]
@@ -54,7 +54,7 @@ async def handle_ping(request: Request) -> Response:
 async def handle(request: Request) -> Response:
     body = await request.json()
     LOGGER.debug(
-        "SERVER request data",
+        "SERVER request data: %s",
         {"url": request.url, "headers": request.headers, "body": body},
     )
     return web.json_response({}, status=200)
@@ -63,7 +63,7 @@ async def handle(request: Request) -> Response:
 async def handle_log(request: Request) -> Response:
     body = await request.json()
     LOGGER.info(
-        "SERVER ping",
+        "SERVER ping: %s",
         {"url": request.url, "headers": request.headers, "body": body},
     )
     return web.json_response({}, status=200)
@@ -76,7 +76,7 @@ async def handle_test(request: Request) -> Response:
             config.homeserver_from.url, config.as_id, config.as_token
         )
         LOGGER.info(
-            "TEST success",
+            "TEST success: %s",
             {
                 "url": request.url,
                 "headers": request.headers,
@@ -92,7 +92,7 @@ async def handle_test(request: Request) -> Response:
 @click.command("serve")
 def serve():
     config = load_config()
-    LOGGER.debug("CONFIG", config.model_dump())
+    LOGGER.debug("CONFIG: %s", config.model_dump())
     app = Application()
     app["config"] = config
     app.add_routes(
