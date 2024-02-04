@@ -20,3 +20,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 mami = "matrix_migration.cli.cli:root"
+
+[tool.mypy]
+ignore_missing_imports = true
+install_types = true
+check_untyped_defs = true
