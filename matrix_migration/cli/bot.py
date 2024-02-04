@@ -1,54 +1,11 @@
 import click
-from aiohttp import ClientResponse, ClientSession, web
+from aiohttp import web
 from aiohttp.web import Application, Request, Response, run_app
 
 from matrix_migration import LOGGER
+from matrix_migration.appservice.client import ping
+from matrix_migration.appservice.server import handle_ping
 from matrix_migration.config import Config, load_config
-
-
-async def ping(
-    hs_url: str,
-    as_id: str,
-    as_token: str,
-    transaction_id: str | None = None,
-) -> ClientResponse | None:
-    ping_url = hs_url + f"/_matrix/client/v1/appservice/{as_id}/ping"
-    headers = {
-        "Authorization": f"Bearer {as_token}",
-    }
-    data = {}
-    if transaction_id is not None:
-        data["transaction_id"] = transaction_id
-    async with ClientSession() as session:
-        LOGGER.info("CLIENT ping")
-        async with session.post(
-            ping_url, headers=headers, json=data
-        ) as response:
-            data = await response.json()
-            LOGGER.debug(
-                "CLIENT ping data: %s",
-                {"headers": response.headers, "body": data},
-            )
-            return response
-
-
-def check_headers(request: Request, hs_token: str) -> bool:
-    return (
-        "Authorization" in request.headers.keys()
-        and request.headers["Authorization"] == f"Bearer {hs_token}"
-    )
-
-
-async def handle_ping(request: Request) -> Response:
-    body = await request.json()
-    LOGGER.debug(
-        "SERVER ping data: %s",
-        {"url": request.url, "headers": request.headers, "body": body},
-    )
-    config: Config = request.app["config"]
-    if check_headers(request, config.hs_token):
-        return web.json_response({}, status=200)
-    return web.json_response({}, status=403)
 
 
 async def handle(request: Request) -> Response:
