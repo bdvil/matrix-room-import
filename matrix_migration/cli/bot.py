@@ -26,8 +26,8 @@ async def ping(
         ) as response:
             data = await response.json()
             LOGGER.debug(
-                "CLIENT ping",
-                extra={"headers": response.headers, "body": data},
+                "CLIENT ping data",
+                {"headers": response.headers, "body": data},
             )
             return response
 
@@ -41,9 +41,9 @@ def check_headers(request: Request, hs_token: str) -> bool:
 
 async def handle_ping(request: Request) -> Response:
     body = await request.json()
-    LOGGER.info(
-        "SERVER ping",
-        extra={"url": request.url, "headers": request.headers, "body": body},
+    LOGGER.debug(
+        "SERVER ping data",
+        {"url": request.url, "headers": request.headers, "body": body},
     )
     config: Config = request.app["config"]
     if check_headers(request, config.hs_token):
@@ -53,9 +53,9 @@ async def handle_ping(request: Request) -> Response:
 
 async def handle(request: Request) -> Response:
     body = await request.json()
-    LOGGER.info(
-        "SERVER ping",
-        extra={"url": request.url, "headers": request.headers, "body": body},
+    LOGGER.debug(
+        "SERVER request data",
+        {"url": request.url, "headers": request.headers, "body": body},
     )
     return web.json_response({}, status=200)
 
@@ -64,7 +64,7 @@ async def handle_log(request: Request) -> Response:
     body = await request.json()
     LOGGER.info(
         "SERVER ping",
-        extra={"url": request.url, "headers": request.headers, "body": body},
+        {"url": request.url, "headers": request.headers, "body": body},
     )
     return web.json_response({}, status=200)
 
@@ -77,7 +77,7 @@ async def handle_test(request: Request) -> Response:
         )
         LOGGER.info(
             "TEST success",
-            extra={
+            {
                 "url": request.url,
                 "headers": request.headers,
                 "resp": resp,
