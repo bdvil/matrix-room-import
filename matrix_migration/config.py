@@ -19,6 +19,7 @@ class Config(BaseModel):
     hs_token: str
     as_id: str
     bot_user: str
+    bot_name: str
 
     # Rooms with these user id will not be migrated (e.g. rooms from bridges)
     filter_room_with: list[str]

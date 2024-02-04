@@ -74,7 +74,7 @@ def serve():
             config.homeserver_from.url,
             config.bot_user,
             config.as_token,
-            "Mami Test",
+            config.bot_name,
         )
     )
     run_app(app, port=config.port)

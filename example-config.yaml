@@ -10,6 +10,7 @@ as_token: set here
 hs_token: set here
 as_id: set here
 bot_user: set here
+bot_name: Matrix Migration Bot
 
 # Rooms with these user id will not be migrated (e.g. rooms from bridges)
 filter_room_with: []
