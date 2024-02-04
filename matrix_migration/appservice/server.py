@@ -37,5 +37,6 @@ async def handle_transaction(request: web.Request) -> web.Response:
     events = types.ClientEvents(**await request.json())
     for event in events.events:
         LOGGER.debug(f"Transaction {txn_id} type= {event.type}")
+        LOGGER.debug("%s", event.content)
 
     return web.json_response({}, status=200)
