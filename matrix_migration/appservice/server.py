@@ -80,7 +80,7 @@ async def handle_room_message_event(
 ):
     if content.body == "hi":
         resp = await client.send_event(
-            "m.message",
+            "m.room.message",
             event.room_id,
             "hello!",
         )
