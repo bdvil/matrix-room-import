@@ -111,13 +111,13 @@ class Membership(Enum):
 
 
 class RoomMember(BaseModel):
+    membership: Membership
     avatar_url: str | None = None
     displayname: str | None = None
     is_direct: bool | None = None
     join_authorised_via_users_server: str | None = None
-    membership: Membership
     reason: str | None = None
-    third_party_invite: Invite
+    third_party_invite: Invite | None = None
 
 
 class EventContent(BaseModel):
