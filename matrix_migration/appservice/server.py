@@ -3,7 +3,12 @@ from aiohttp import web
 import matrix_migration.appservice.types as types
 from matrix_migration import LOGGER
 from matrix_migration.appservice.client import Client
-from matrix_migration.appservice.events import RoomJoinRules, RoomMessage
+from matrix_migration.appservice.types import (
+    Membership,
+    RoomJoinRules,
+    RoomMember,
+    RoomMessage,
+)
 from matrix_migration.config import Config
 from matrix_migration.store import Store
 
@@ -51,15 +56,25 @@ async def handle_transaction(request: web.Request) -> web.Response:
         LOGGER.debug("%s", event)
         LOGGER.debug("%s", event.content)
 
-        if event.type == "m.room.join_rules":
-            assert isinstance(event.content, RoomJoinRules)
-
-        if event.type == "m.room.message":
-            assert isinstance(event.content, RoomMessage)
-            await handle_room_message_event(client, event, event.content)
+        match event.type:
+            case "m.room.join_rules":
+                assert isinstance(event.content, RoomJoinRules)
+            case "m.room.member":
+                assert isinstance(event.content, RoomMember)
+                await handle_room_member(client, event, event.content)
+            case "m.room.message":
+                assert isinstance(event.content, RoomMessage)
+                await handle_room_message_event(client, event, event.content)
 
     txn_store.append(txn_id)
     return web.json_response({}, status=200)
+
+
+async def handle_room_member(
+    client: Client, event: types.ClientEvent, content: RoomMember
+):
+    if content.membership == Membership.invite:
+        pass
 
 
 async def handle_room_join_rules(
