@@ -147,6 +147,13 @@ class ClientEvent(BaseModel):
     type: str
     unsigned: Any | None = None
 
+    @model_validator(mode="after")
+    def content_validation(self):
+        match self.type:
+            case "m.room.member":
+                assert isinstance(self.content, RoomMember)
+        return self
+
 
 class ClientEvents(BaseModel):
     events: list[ClientEvent]

@@ -37,7 +37,6 @@ async def handle_transaction(request: web.Request) -> web.Response:
         "SERVER transaction data: %s",
         {"url": request.url, "headers": request.headers},
     )
-    print("oui")
     config: Config = request.app["config"]
     client: Client = request.app["client"]
 
@@ -57,14 +56,14 @@ async def handle_transaction(request: web.Request) -> web.Response:
         LOGGER.debug("%s", event.content)
 
         match event.type:
-            case "m.room.join_rules":
-                assert isinstance(event.content, RoomJoinRules)
+            # case "m.room.join_rules":
+            #     assert isinstance(event.content, RoomJoinRules)
             case "m.room.member":
                 assert isinstance(event.content, RoomMember)
                 await handle_room_member(client, event, event.content)
-            case "m.room.message":
-                assert isinstance(event.content, RoomMessage)
-                await handle_room_message_event(client, event, event.content)
+            # case "m.room.message":
+            #     assert isinstance(event.content, RoomMessage)
+            #     await handle_room_message_event(client, event, event.content)
 
     txn_store.append(txn_id)
     return web.json_response({}, status=200)
