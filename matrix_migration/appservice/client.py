@@ -141,3 +141,24 @@ class Client:
                         {"headers": response.headers, "body": data},
                     )
                     return data
+
+    async def sync(
+        self,
+        filter: str | None,
+        full_state: bool = False,
+        set_presence: Presence | None = None,
+        since: str | None = None,
+        timeout: int = 0,
+    ) -> JoinRoomResponse | ErrorResponse | None:
+        url = matrix_api.sync(
+            self.hs_url, filter, full_state, set_presence, since, timeout
+        )
+        LOGGER.info("CLIENT join_room")
+        async with ClientSession(headers=self.headers) as session:
+            async with session.get(url) as response:
+                if response.status == 200:
+                    data = JoinRoomResponse(**await response.json())
+                    return data
+                else:
+                    data = ErrorResponse(**await response.json())
+                    return data

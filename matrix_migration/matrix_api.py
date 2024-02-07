@@ -1,5 +1,7 @@
 from urllib import parse
 
+from matrix_migration.appservice.types import Presence
+
 
 def sanitize_url(hs_url: str) -> str:
     if hs_url[-1] == "/":
@@ -38,3 +40,22 @@ def room_send_event(
         sanitize_url(hs_url)
         + f"/_matrix/client/v3/rooms/{room_id}/send/{event_type}/{txn_id}"
     )
+
+
+def sync(
+    hs_url: str,
+    filter: str | None,
+    full_state: bool = False,
+    set_presence: Presence | None = None,
+    since: str | None = None,
+    timeout: int = 0,
+) -> str:
+    query_data = {"full_state": full_state, "timeout": timeout}
+    if filter is not None:
+        query_data["filter"] = filter
+    if set_presence is not None:
+        query_data["set_presence"] = set_presence.value
+    if since is not None:
+        query_data["since"] = since
+    query = parse.urlencode(query_data)
+    return sanitize_url(hs_url) + f"/_matrix/client/v3/sync?{query}"

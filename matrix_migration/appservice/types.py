@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class ErrorResponse(BaseModel):
@@ -102,7 +102,7 @@ class RoomMessage(BaseModel):
         return self
 
 
-class Membership(Enum):
+class MembershipEnum(Enum):
     invite = "invite"
     join = "join"
     knock = "knock"
@@ -110,14 +110,14 @@ class Membership(Enum):
     ban = "ban"
 
 
-class Presence(Enum):
+class PresenceEnum(Enum):
     online = "online"
     offline = "offline"
     unavailable = "unavailable"
 
 
 class RoomMember(BaseModel):
-    membership: Membership
+    membership: MembershipEnum
     avatar_url: str | None = None
     displayname: str | None = None
     is_direct: bool | None = None
@@ -127,31 +127,48 @@ class RoomMember(BaseModel):
 
 
 class EventContent(BaseModel):
-    avatar_url: str
+    avatar_url: str | None = None
     displayname: str | None
-    is_direct: bool
-    join_authorised_via_users_server: str
+    is_direct: bool | None = None
+    join_authorised_via_users_server: str | None = None
     membership: str
-    reason: str
-    third_party_invite: Invite
+    reason: str | None = None
+    third_party_invite: Invite | None = None
+
+
+class UnsignedDataWithoutRoomId(BaseModel):
+    age: int | None = None
+    prev_content: EventContent | None = None
+    redacted_because: "ClientEventWithoutRoomID | None" = None
+    transaction_id: str | None = None
 
 
 class UnsignedData(BaseModel):
-    age: int
-    prev_content: Any
-    redacted_because: "ClientEvent"
+    age: int | None = None
+    prev_content: EventContent | None = None
+    redacted_because: "ClientEvent | None" = None
     transaction_id: str
+
+
+class ClientEventWithoutRoomID(BaseModel):
+    content: dict[str, Any]
+    event_id: str
+    origin_server_ts: int
+    sender: str
+    state_key: str | None = None
+    type: str
+    unsigned: UnsignedDataWithoutRoomId | None = None
 
 
 class ClientEvent(BaseModel):
     content: dict[str, Any]
     event_id: str
     origin_server_ts: int
-    room_id: str
     sender: str
     state_key: str | None = None
     type: str
-    unsigned: Any | None = None
+    unsigned: UnsignedData | None = None
+    room_id: str
 
 
 class ClientEvents(BaseModel):
@@ -165,3 +182,68 @@ class JoinRoomBody(BaseModel):
 
 class JoinRoomResponse(BaseModel):
     room_id: str
+
+
+class Event(BaseModel):
+    content: dict[str, Any]
+    type: str
+
+
+class AccountData(BaseModel):
+    events: list[Event] | None = None
+
+
+class DeviceLists(BaseModel):
+    pass
+
+
+class Presence(BaseModel):
+    events: list[Event] | None = None
+
+
+class StrippedStateEvent(BaseModel):
+    content: EventContent
+    sender: str
+    state_key: str
+    type: str
+
+
+class InviteState(BaseModel):
+    events: list[StrippedStateEvent] | None = None
+
+
+class InvitedRoom(BaseModel):
+    invite_state: InviteState | None = None
+
+
+class Ephemeral(BaseModel):
+    events: list[Event] | None = None
+
+
+class State(BaseModel):
+    events: list[ClientEventWithoutRoomID] | None = None
+
+
+class RoomSummary(BaseModel):
+    heroes: list[str] | None = Field(alias="m.heroes", default=None)
+    invited_member_count: int | None = Field(
+        alias="m.invited_member_count", default=None
+    )
+    joined_member_count: int | None = Field(
+        alias="m.joined_member_count", default=None
+    )
+
+
+class ThreadNotificationCounts(BaseModel):
+    highlight_count: int | None = None
+    notification_count: int | None = None
+
+
+class UnreadNotificationCounts(BaseModel):
+    highlight_count: int | None = None
+    notification_count: int | None = None
+
+
+class SyncResponse(BaseModel):
+    account_data: AccountData | None = None
+    device_lists: None = None
