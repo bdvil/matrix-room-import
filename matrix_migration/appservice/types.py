@@ -151,7 +151,9 @@ class ClientEvent(BaseModel):
     def content_validation(self):
         match self.type:
             case "m.room.member":
-                assert isinstance(self.content, RoomMember)
+                if isinstance(self.content, dict):
+                    self.content = RoomMessage(**self.content)
+        print(type(self.content))
         return self
 
 
