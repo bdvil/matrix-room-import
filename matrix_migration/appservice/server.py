@@ -59,8 +59,8 @@ async def handle_transaction(request: web.Request) -> web.Response:
             # case "m.room.join_rules":
             #     assert isinstance(event.content, RoomJoinRules)
             case "m.room.member":
-                assert isinstance(event.content, RoomMember)
-                await handle_room_member(client, event, event.content)
+                content = RoomMember(**event.content)
+                await handle_room_member(client, event, content)
             # case "m.room.message":
             #     assert isinstance(event.content, RoomMessage)
             #     await handle_room_message_event(client, event, event.content)

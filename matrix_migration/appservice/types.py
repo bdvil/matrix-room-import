@@ -138,7 +138,7 @@ class UnsignedData(BaseModel):
 
 
 class ClientEvent(BaseModel):
-    content: RoomJoinRules | RoomMessage | RoomMember | Any
+    content: dict[str, Any]
     event_id: str
     origin_server_ts: int
     room_id: str
@@ -146,15 +146,6 @@ class ClientEvent(BaseModel):
     state_key: str | None = None
     type: str
     unsigned: Any | None = None
-
-    @model_validator(mode="after")
-    def content_validation(self):
-        match self.type:
-            case "m.room.member":
-                if isinstance(self.content, dict):
-                    self.content = RoomMessage(**self.content)
-        print(type(self.content))
-        return self
 
 
 class ClientEvents(BaseModel):
