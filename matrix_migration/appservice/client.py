@@ -7,6 +7,7 @@ from matrix_migration.appservice.types import (
     ErrorResponse,
     JoinRoomBody,
     JoinRoomResponse,
+    Presence,
 )
 
 
@@ -115,7 +116,7 @@ class Client:
         room_id: str,
         body: str,
         txn_id: str | None = None,
-    ) -> ClientResponse | None:
+    ) -> str | ErrorResponse | None:
         txn_id = txn_id or new_txn()
         url = matrix_api.room_send_event(
             self.hs_url, room_id, event_type, txn_id
@@ -127,16 +128,16 @@ class Client:
             ) as response:
                 if response.status == 200:
                     data = await response.json()
-                    event_id = data["event_id"]
+                    event_id: str = data["event_id"]
                     LOGGER.debug(
                         "CLIENT send_event: %s",
                         {"headers": response.headers, "event_id": event_id},
                     )
                     return event_id
                 else:
-                    data = await response.json()
+                    data = ErrorResponse(**await response.json())
                     LOGGER.debug(
                         "CLIENT send_event error data: %s",
                         {"headers": response.headers, "body": data},
                     )
-                    return response
+                    return data

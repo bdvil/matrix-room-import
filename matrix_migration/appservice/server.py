@@ -56,14 +56,12 @@ async def handle_transaction(request: web.Request) -> web.Response:
         LOGGER.debug("%s", event.content)
 
         match event.type:
-            # case "m.room.join_rules":
-            #     assert isinstance(event.content, RoomJoinRules)
             case "m.room.member":
                 content = RoomMember(**event.content)
                 await handle_room_member(client, event, content)
-            # case "m.room.message":
-            #     assert isinstance(event.content, RoomMessage)
-            #     await handle_room_message_event(client, event, event.content)
+            case "m.room.message":
+                content = RoomMessage(**event.content)
+                await handle_room_message_event(client, event, content)
 
     txn_store.append(txn_id)
     return web.json_response({}, status=200)
@@ -77,20 +75,13 @@ async def handle_room_member(
         LOGGER.debug(resp)
 
 
-async def handle_room_join_rules(
-    client: Client, event: types.ClientEvent, content: RoomJoinRules
-):
-    if content.join_rule == "invite":
-        pass
-
-
 async def handle_room_message_event(
     client: Client, event: types.ClientEvent, content: RoomMessage
 ):
-    if content.body == "Plip MAMI":
+    if content.body == "hi":
         resp = await client.send_event(
             "m.message",
             event.room_id,
-            "Plop",
+            "hello!",
         )
         LOGGER.debug(resp)

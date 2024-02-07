@@ -110,6 +110,12 @@ class Membership(Enum):
     ban = "ban"
 
 
+class Presence(Enum):
+    online = "online"
+    offline = "offline"
+    unavailable = "unavailable"
+
+
 class RoomMember(BaseModel):
     membership: Membership
     avatar_url: str | None = None
