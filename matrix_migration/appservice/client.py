@@ -94,21 +94,20 @@ class Client:
         return await self.profile(user_id)
 
     async def join_room(
-        self, room_id: str, server_name: str | None = None
-    ) -> ClientResponse | None:
-        url = matrix_api.room_join(self.hs_url, room_id, server_name)
+        self, room_id: str
+    ) -> JoinRoomResponse | ErrorResponse | None:
+        url = matrix_api.room_join(self.hs_url, room_id)
         LOGGER.info("CLIENT join_room")
         async with ClientSession(headers=self.headers) as session:
-            async with session.put(
+            async with session.post(
                 url, json=JoinRoomBody().model_dump()
             ) as response:
                 if response.status == 200:
                     data = JoinRoomResponse(**await response.json())
-                    LOGGER.debug(data)
-                    return response
+                    return data
                 else:
                     data = ErrorResponse(**await response.json())
-                    LOGGER.debug(data)
+                    return data
 
     async def send_event(
         self,

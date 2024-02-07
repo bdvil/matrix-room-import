@@ -73,7 +73,8 @@ async def handle_room_member(
     client: Client, event: types.ClientEvent, content: RoomMember
 ):
     if content.membership == Membership.invite:
-        pass
+        resp = await client.join_room(event.room_id)
+        LOGGER.debug(resp)
 
 
 async def handle_room_join_rules(
