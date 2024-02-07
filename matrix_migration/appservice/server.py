@@ -61,7 +61,9 @@ async def handle_transaction(request: web.Request) -> web.Response:
                 await handle_room_member(client, event, content)
             case "m.room.message":
                 content = RoomMessage(**event.content)
-                await handle_room_message_event(client, event, content)
+                await handle_room_message_event(
+                    client, event, content, config.bot_user
+                )
 
     txn_store.append(txn_id)
     return web.json_response({}, status=200)
@@ -76,9 +78,12 @@ async def handle_room_member(
 
 
 async def handle_room_message_event(
-    client: Client, event: types.ClientEvent, content: RoomMessage
+    client: Client,
+    event: types.ClientEvent,
+    content: RoomMessage,
+    bot_user: str,
 ):
-    if content.body == "hi":
+    if event.sender != bot_user and content.body == "hi":
         resp = await client.send_event(
             "m.room.message",
             event.room_id,
