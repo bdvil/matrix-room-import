@@ -194,7 +194,8 @@ class AccountData(BaseModel):
 
 
 class DeviceLists(BaseModel):
-    pass
+    changed: list[str] | None = None
+    left: list[str] | None = None
 
 
 class Presence(BaseModel):
@@ -206,14 +207,6 @@ class StrippedStateEvent(BaseModel):
     sender: str
     state_key: str
     type: str
-
-
-class InviteState(BaseModel):
-    events: list[StrippedStateEvent] | None = None
-
-
-class InvitedRoom(BaseModel):
-    invite_state: InviteState | None = None
 
 
 class Ephemeral(BaseModel):
@@ -234,6 +227,29 @@ class RoomSummary(BaseModel):
     )
 
 
+class InviteState(BaseModel):
+    events: list[StrippedStateEvent] | None = None
+
+
+class InvitedRoom(BaseModel):
+    invite_state: InviteState | None = None
+
+
+class JoinedRoom(BaseModel):
+    account_data: AccountData | None = None
+    ephemeral: Ephemeral | None = None
+    state: State | None = None
+    summary: RoomSummary | None = None
+
+
+class KnockedRoom(BaseModel):
+    pass
+
+
+class LeftRoom(BaseModel):
+    pass
+
+
 class ThreadNotificationCounts(BaseModel):
     highlight_count: int | None = None
     notification_count: int | None = None
@@ -244,6 +260,22 @@ class UnreadNotificationCounts(BaseModel):
     notification_count: int | None = None
 
 
+class Rooms(BaseModel):
+    invite: InvitedRoom | None = None
+    join: JoinedRoom | None = None
+    knock: KnockedRoom | None = None
+    leave: LeftRoom | None = None
+
+
+class ToDevice(BaseModel):
+    pass
+
+
 class SyncResponse(BaseModel):
     account_data: AccountData | None = None
-    device_lists: None = None
+    device_lists: DeviceLists | None = None
+    device_one_time_keys_count: dict[str, int] | None = None
+    next_batch: str
+    presence: Presence | None = None
+    rooms: Rooms | None = None
+    to_device: ToDevice | None = None
