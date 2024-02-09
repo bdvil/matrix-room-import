@@ -53,7 +53,7 @@ async def handle_transaction(request: web.Request) -> web.Response:
         match event.type:
             case "m.room.member":
                 content = RoomMember(**event.content)
-                await handle_room_member(client, event, content, config.as_id)
+                await handle_room_member(client, event, content)
             case "m.room.message":
                 content = RoomMessage(**event.content)
                 await handle_room_message_event(client, event, content, config.bot_user)
@@ -63,13 +63,11 @@ async def handle_transaction(request: web.Request) -> web.Response:
 
 
 async def handle_room_member(
-    client: Client, event: types.ClientEvent, content: RoomMember, bot_user: str
+    client: Client, event: types.ClientEvent, content: RoomMember
 ):
     if content.membership == MembershipEnum.invite:
         resp = await client.join_room(event.room_id)
         LOGGER.debug(resp)
-        sync_resp = await client.sync(full_state=True, timeout=1000, user_id=bot_user)
-        LOGGER.debug(sync_resp)
 
 
 async def handle_room_message_event(
