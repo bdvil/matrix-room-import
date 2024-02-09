@@ -33,9 +33,7 @@ class AllowCondition(BaseModel):
     @model_validator(mode="after")
     def room_id_validation(self):
         if self.type == "m.room_membership" and self.room_id is None:
-            raise ValueError(
-                "room_id should not be empty for type m.room_membership"
-            )
+            raise ValueError("room_id should not be empty for type m.room_membership")
         return self
 
 
@@ -223,9 +221,7 @@ class RoomSummary(BaseModel):
     invited_member_count: int | None = Field(
         alias="m.invited_member_count", default=None
     )
-    joined_member_count: int | None = Field(
-        alias="m.joined_member_count", default=None
-    )
+    joined_member_count: int | None = Field(alias="m.joined_member_count", default=None)
 
 
 class InviteState(BaseModel):

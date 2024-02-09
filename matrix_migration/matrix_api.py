@@ -23,19 +23,14 @@ def profile(hs_url: str, user_id: str) -> str:
 
 
 def profile_displayname(hs_url: str, user_id: str) -> str:
-    return (
-        sanitize_url(hs_url)
-        + f"/_matrix/client/v3/profile/{user_id}/displayname"
-    )
+    return sanitize_url(hs_url) + f"/_matrix/client/v3/profile/{user_id}/displayname"
 
 
 def room_join(hs_url: str, room_id: str) -> str:
     return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/join"
 
 
-def room_send_event(
-    hs_url: str, room_id: str, event_type: str, txn_id: str
-) -> str:
+def room_send_event(hs_url: str, room_id: str, event_type: str, txn_id: str) -> str:
     return (
         sanitize_url(hs_url)
         + f"/_matrix/client/v3/rooms/{room_id}/send/{event_type}/{txn_id}"

@@ -8,6 +8,7 @@ from matrix_migration.appservice.types import (
     JoinRoomBody,
     JoinRoomResponse,
     PresenceEnum,
+    SyncResponse,
 )
 
 
@@ -72,9 +73,7 @@ class Client:
         url = matrix_api.profile_displayname(self.hs_url, user_id)
         LOGGER.info("CLIENT set displayname")
         async with ClientSession(headers=self.headers) as session:
-            async with session.put(
-                url, json={"displayname": displayname}
-            ) as response:
+            async with session.put(url, json={"displayname": displayname}) as response:
                 data = await response.json()
                 LOGGER.debug(
                     "CLIENT set displayname data: %s",
@@ -94,15 +93,11 @@ class Client:
             response = await self.set_displayname(user_id, displayname)
         return await self.profile(user_id)
 
-    async def join_room(
-        self, room_id: str
-    ) -> JoinRoomResponse | ErrorResponse | None:
+    async def join_room(self, room_id: str) -> JoinRoomResponse | ErrorResponse | None:
         url = matrix_api.room_join(self.hs_url, room_id)
         LOGGER.info("CLIENT join_room")
         async with ClientSession(headers=self.headers) as session:
-            async with session.post(
-                url, json=JoinRoomBody().model_dump()
-            ) as response:
+            async with session.post(url, json=JoinRoomBody().model_dump()) as response:
                 if response.status == 200:
                     data = JoinRoomResponse(**await response.json())
                     return data
@@ -118,9 +113,7 @@ class Client:
         txn_id: str | None = None,
     ) -> str | ErrorResponse | None:
         txn_id = txn_id or new_txn()
-        url = matrix_api.room_send_event(
-            self.hs_url, room_id, event_type, txn_id
-        )
+        url = matrix_api.room_send_event(self.hs_url, room_id, event_type, txn_id)
         LOGGER.info("CLIENT send_event")
         async with ClientSession(headers=self.headers) as session:
             async with session.put(
@@ -144,12 +137,12 @@ class Client:
 
     async def sync(
         self,
-        filter: str | None,
+        filter: str | None = None,
         full_state: bool = False,
         set_presence: PresenceEnum | None = None,
         since: str | None = None,
         timeout: int = 0,
-    ) -> JoinRoomResponse | ErrorResponse | None:
+    ) -> SyncResponse | ErrorResponse | None:
         url = matrix_api.sync(
             self.hs_url, filter, full_state, set_presence, since, timeout
         )
@@ -157,7 +150,7 @@ class Client:
         async with ClientSession(headers=self.headers) as session:
             async with session.get(url) as response:
                 if response.status == 200:
-                    data = JoinRoomResponse(**await response.json())
+                    data = SyncResponse(**await response.json())
                     return data
                 else:
                     data = ErrorResponse(**await response.json())
