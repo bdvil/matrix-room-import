@@ -146,7 +146,7 @@ class Client:
         url = matrix_api.sync(
             self.hs_url, filter, full_state, set_presence, since, timeout
         )
-        LOGGER.info("CLIENT /sync")
+        LOGGER.info(f"CLIENT sync {url}")
         async with ClientSession(headers=self.headers) as session:
             async with session.get(url) as response:
                 if response.status == 200:
