@@ -76,4 +76,5 @@ def serve():
         ]
     )
     run(client.update_bot_profile(config.bot_user, config.bot_name))
+    run(client.get_self_keys({config.bot_user: []}))
     run_app(app, port=config.port)

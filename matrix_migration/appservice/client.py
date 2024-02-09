@@ -127,6 +127,12 @@ class Client:
                     data = ErrorResponse(**await response.json())
                     return data
 
+    async def get_self_keys(
+        self, device_keys: Mapping[str, Sequence[str]], timeout: int = 10_000
+    ):
+        data = await self.query_keys(device_keys, timeout)
+        LOGGER.debug(data)
+
     async def send_event(
         self,
         event_type: str,
