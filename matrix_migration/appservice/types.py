@@ -145,7 +145,7 @@ class UnsignedData(BaseModel):
     age: int | None = None
     prev_content: EventContent | None = None
     redacted_because: "ClientEvent | None" = None
-    transaction_id: str
+    transaction_id: str | None = None
 
 
 class ClientEventWithoutRoomID(BaseModel):
