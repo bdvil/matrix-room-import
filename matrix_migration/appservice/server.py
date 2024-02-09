@@ -3,12 +3,7 @@ from aiohttp import web
 import matrix_migration.appservice.types as types
 from matrix_migration import LOGGER
 from matrix_migration.appservice.client import Client
-from matrix_migration.appservice.types import (
-    MembershipEnum,
-    RoomJoinRules,
-    RoomMember,
-    RoomMessage,
-)
+from matrix_migration.appservice.types import MembershipEnum, RoomMember, RoomMessage
 from matrix_migration.config import Config
 from matrix_migration.store import Store
 
