@@ -126,7 +126,7 @@ class RoomMember(BaseModel):
 
 class EventContent(BaseModel):
     avatar_url: str | None = None
-    displayname: str | None
+    displayname: str | None = None
     is_direct: bool | None = None
     join_authorised_via_users_server: str | None = None
     membership: str
