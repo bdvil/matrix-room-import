@@ -1,6 +1,6 @@
 from urllib import parse
 
-from matrix_migration.appservice.types import Presence
+from matrix_migration.appservice.types import PresenceEnum
 
 
 def sanitize_url(hs_url: str) -> str:
@@ -46,7 +46,7 @@ def sync(
     hs_url: str,
     filter: str | None,
     full_state: bool = False,
-    set_presence: Presence | None = None,
+    set_presence: PresenceEnum | None = None,
     since: str | None = None,
     timeout: int = 0,
 ) -> str:

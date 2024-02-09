@@ -187,6 +187,7 @@ class JoinRoomResponse(BaseModel):
 class Event(BaseModel):
     content: dict[str, Any]
     type: str
+    sender: str | None = None
 
 
 class AccountData(BaseModel):
@@ -203,7 +204,7 @@ class Presence(BaseModel):
 
 
 class StrippedStateEvent(BaseModel):
-    content: EventContent
+    content: dict[str, Any]
     sender: str
     state_key: str
     type: str
@@ -235,19 +236,10 @@ class InvitedRoom(BaseModel):
     invite_state: InviteState | None = None
 
 
-class JoinedRoom(BaseModel):
-    account_data: AccountData | None = None
-    ephemeral: Ephemeral | None = None
-    state: State | None = None
-    summary: RoomSummary | None = None
-
-
-class KnockedRoom(BaseModel):
-    pass
-
-
-class LeftRoom(BaseModel):
-    pass
+class Timeline(BaseModel):
+    events: list[ClientEventWithoutRoomID]
+    limited: bool | None = None
+    prev_batch: str | None = None
 
 
 class ThreadNotificationCounts(BaseModel):
@@ -256,8 +248,32 @@ class ThreadNotificationCounts(BaseModel):
 
 
 class UnreadNotificationCounts(BaseModel):
-    highlight_count: int | None = None
     notification_count: int | None = None
+    highlight_count: int | None = None
+
+
+class JoinedRoom(BaseModel):
+    account_data: AccountData | None = None
+    ephemeral: Ephemeral | None = None
+    state: State | None = None
+    summary: RoomSummary | None = None
+    timeline: Timeline | None = None
+    unread_notifications: UnreadNotificationCounts | None = None
+    unread_thread_notifications: ThreadNotificationCounts | None = None
+
+
+class KnockState(BaseModel):
+    events: list[StrippedStateEvent] | None = None
+
+
+class KnockedRoom(BaseModel):
+    knock_state: KnockState | None = None
+
+
+class LeftRoom(BaseModel):
+    account_data: AccountData | None = None
+    state: State | None = None
+    timeline: Timeline | None = None
 
 
 class Rooms(BaseModel):
@@ -268,7 +284,7 @@ class Rooms(BaseModel):
 
 
 class ToDevice(BaseModel):
-    pass
+    events: list[Event] | None = None
 
 
 class SyncResponse(BaseModel):

@@ -4,7 +4,7 @@ import matrix_migration.appservice.types as types
 from matrix_migration import LOGGER
 from matrix_migration.appservice.client import Client
 from matrix_migration.appservice.types import (
-    Membership,
+    MembershipEnum,
     RoomJoinRules,
     RoomMember,
     RoomMessage,
@@ -72,7 +72,7 @@ async def handle_transaction(request: web.Request) -> web.Response:
 async def handle_room_member(
     client: Client, event: types.ClientEvent, content: RoomMember
 ):
-    if content.membership == Membership.invite:
+    if content.membership == MembershipEnum.invite:
         resp = await client.join_room(event.room_id)
         LOGGER.debug(resp)
 
