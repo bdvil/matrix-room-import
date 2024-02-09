@@ -51,6 +51,7 @@ def sync(
     set_presence: PresenceEnum | None = None,
     since: str | None = None,
     timeout: int = 0,
+    user_id: str | None = None,
 ) -> str:
     query_data = {"full_state": full_state, "timeout": timeout}
     if filter is not None:
@@ -59,5 +60,7 @@ def sync(
         query_data["set_presence"] = set_presence.value
     if since is not None:
         query_data["since"] = since
+    if user_id is not None:
+        query_data["user_id"] = user_id
     query = urlencode(query_data)
     return sanitize_url(hs_url) + f"/_matrix/client/v3/sync?{query}"

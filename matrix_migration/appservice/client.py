@@ -142,9 +142,10 @@ class Client:
         set_presence: PresenceEnum | None = None,
         since: str | None = None,
         timeout: int = 0,
+        user_id: str | None = None,
     ) -> SyncResponse | ErrorResponse | None:
         url = matrix_api.sync(
-            self.hs_url, filter, full_state, set_presence, since, timeout
+            self.hs_url, filter, full_state, set_presence, since, timeout, user_id
         )
         LOGGER.info(f"CLIENT sync {url}")
         async with ClientSession(headers=self.headers) as session:
