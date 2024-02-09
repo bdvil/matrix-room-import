@@ -1,6 +1,13 @@
+from typing import Any
 from urllib import parse
 
 from matrix_migration.appservice.types import PresenceEnum
+
+
+def urlencode(data: dict[str, Any]) -> str:
+    return parse.urlencode(
+        [(k, str(v).lower() if isinstance(v, bool) else v) for k, v in data.items()]
+    )
 
 
 def sanitize_url(hs_url: str) -> str:
@@ -14,7 +21,7 @@ def ping(hs_url: str, as_id: str) -> str:
 
 
 def whoami(hs_url: str, user_id: str) -> str:
-    query = parse.urlencode({"user_id": user_id})
+    query = urlencode({"user_id": user_id})
     return sanitize_url(hs_url) + f"/_matrix/client/v3/account/whoami?{query}"
 
 
@@ -52,5 +59,5 @@ def sync(
         query_data["set_presence"] = set_presence.value
     if since is not None:
         query_data["since"] = since
-    query = parse.urlencode(query_data)
+    query = urlencode(query_data)
     return sanitize_url(hs_url) + f"/_matrix/client/v3/sync?{query}"
