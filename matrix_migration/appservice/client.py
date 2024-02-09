@@ -1,3 +1,4 @@
+from collections.abc import Mapping, Sequence
 from uuid import uuid4
 
 from aiohttp import ClientResponse, ClientSession
@@ -9,6 +10,7 @@ from matrix_migration.appservice.types import (
     JoinRoomResponse,
     PresenceEnum,
     QueryKeysBody,
+    QueryKeysResponse,
     SyncResponse,
 )
 
@@ -107,8 +109,8 @@ class Client:
                     return data
 
     async def query_keys(
-        self, device_keys: dict[str, list[str]], timeout: int = 10_000
-    ) -> JoinRoomResponse | ErrorResponse | None:
+        self, device_keys: Mapping[str, Sequence[str]], timeout: int = 10_000
+    ) -> QueryKeysResponse | ErrorResponse | None:
         url = matrix_api.query_key(self.hs_url)
         LOGGER.info(f"CLIENT query_keys {url}")
         async with ClientSession(headers=self.headers) as session:
@@ -119,7 +121,7 @@ class Client:
                 ).model_dump(),
             ) as response:
                 if response.status == 200:
-                    data = JoinRoomResponse(**await response.json())
+                    data = QueryKeysResponse(**await response.json())
                     return data
                 else:
                     data = ErrorResponse(**await response.json())

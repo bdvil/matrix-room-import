@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from enum import Enum
 from typing import Any
 
@@ -38,13 +38,13 @@ class AllowCondition(BaseModel):
 
 
 class RoomJoinRules(BaseModel):
-    allow: list[AllowCondition] | None = None
+    allow: Sequence[AllowCondition] | None = None
     join_rule: str
 
 
 class JWK(BaseModel):
     kty: str
-    key_ops: list[str]
+    key_ops: Sequence[str]
     alg: str
     k: str
     ext: bool
@@ -170,7 +170,7 @@ class ClientEvent(BaseModel):
 
 
 class ClientEvents(BaseModel):
-    events: list[ClientEvent]
+    events: Sequence[ClientEvent]
 
 
 class JoinRoomBody(BaseModel):
@@ -183,7 +183,7 @@ class JoinRoomResponse(BaseModel):
 
 
 class QueryKeysBody(BaseModel):
-    device_keys: Mapping[str, list[str]]
+    device_keys: Mapping[str, Sequence[str]]
     timeout: int
 
 
@@ -193,7 +193,7 @@ Signatures = RootModel[Mapping[str, Mapping[str, str]]]
 class CrossSigningKey(BaseModel):
     keys: Mapping[str, str]
     signatures: Signatures | None = None
-    usage: list[str]
+    usage: Sequence[str]
     user_id: str
 
 
@@ -202,7 +202,7 @@ class UnsignedDeviceInfo(BaseModel):
 
 
 class DeviceInformation(BaseModel):
-    algorithms: list[str]
+    algorithms: Sequence[str]
     device_id: str
     keys: Mapping[str, str]
     signatures: Signatures
@@ -225,16 +225,16 @@ class Event(BaseModel):
 
 
 class AccountData(BaseModel):
-    events: list[Event] | None = None
+    events: Sequence[Event] | None = None
 
 
 class DeviceLists(BaseModel):
-    changed: list[str] | None = None
-    left: list[str] | None = None
+    changed: Sequence[str] | None = None
+    left: Sequence[str] | None = None
 
 
 class Presence(BaseModel):
-    events: list[Event] | None = None
+    events: Sequence[Event] | None = None
 
 
 class StrippedStateEvent(BaseModel):
@@ -245,15 +245,15 @@ class StrippedStateEvent(BaseModel):
 
 
 class Ephemeral(BaseModel):
-    events: list[Event] | None = None
+    events: Sequence[Event] | None = None
 
 
 class State(BaseModel):
-    events: list[ClientEventWithoutRoomID] | None = None
+    events: Sequence[ClientEventWithoutRoomID] | None = None
 
 
 class RoomSummary(BaseModel):
-    heroes: list[str] | None = Field(alias="m.heroes", default=None)
+    heroes: Sequence[str] | None = Field(alias="m.heroes", default=None)
     invited_member_count: int | None = Field(
         alias="m.invited_member_count", default=None
     )
@@ -261,7 +261,7 @@ class RoomSummary(BaseModel):
 
 
 class InviteState(BaseModel):
-    events: list[StrippedStateEvent] | None = None
+    events: Sequence[StrippedStateEvent] | None = None
 
 
 class InvitedRoom(BaseModel):
@@ -269,7 +269,7 @@ class InvitedRoom(BaseModel):
 
 
 class Timeline(BaseModel):
-    events: list[ClientEventWithoutRoomID]
+    events: Sequence[ClientEventWithoutRoomID]
     limited: bool | None = None
     prev_batch: str | None = None
 
@@ -295,7 +295,7 @@ class JoinedRoom(BaseModel):
 
 
 class KnockState(BaseModel):
-    events: list[StrippedStateEvent] | None = None
+    events: Sequence[StrippedStateEvent] | None = None
 
 
 class KnockedRoom(BaseModel):
@@ -316,12 +316,12 @@ class Rooms(BaseModel):
 
 
 class ToDevice(BaseModel):
-    events: list[Event] | None = None
+    events: Sequence[Event] | None = None
 
 
 class SyncResponse(BaseModel):
     account_data: AccountData | None = None
-    device_lists: DeviceLists | None = None
+    device_Sequences: DeviceLists | None = None
     device_one_time_keys_count: Mapping[str, int] | None = None
     next_batch: str
     presence: Presence | None = None
