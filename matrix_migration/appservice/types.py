@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, RootModel, model_validator
 
 
 class ErrorResponse(BaseModel):
@@ -149,7 +149,7 @@ class UnsignedData(BaseModel):
 
 
 class ClientEventWithoutRoomID(BaseModel):
-    content: dict[str, Any]
+    content: Mapping[str, Any]
     event_id: str
     origin_server_ts: int
     sender: str
@@ -159,7 +159,7 @@ class ClientEventWithoutRoomID(BaseModel):
 
 
 class ClientEvent(BaseModel):
-    content: dict[str, Any]
+    content: Mapping[str, Any]
     event_id: str
     origin_server_ts: int
     sender: str
@@ -182,8 +182,44 @@ class JoinRoomResponse(BaseModel):
     room_id: str
 
 
+class QueryKeysBody(BaseModel):
+    device_keys: Mapping[str, list[str]]
+    timeout: int
+
+
+Signatures = RootModel[Mapping[str, Mapping[str, str]]]
+
+
+class CrossSigningKey(BaseModel):
+    keys: Mapping[str, str]
+    signatures: Signatures | None = None
+    usage: list[str]
+    user_id: str
+
+
+class UnsignedDeviceInfo(BaseModel):
+    device_display_name: str | None = None
+
+
+class DeviceInformation(BaseModel):
+    algorithms: list[str]
+    device_id: str
+    keys: Mapping[str, str]
+    signatures: Signatures
+    unsigned: UnsignedDeviceInfo | None = None
+    user_id: str
+
+
+class QueryKeysResponse(BaseModel):
+    device_keys: Mapping[str, Mapping[str, DeviceInformation]] | None = None
+    failures: Mapping[str, Any] | None = None
+    master_keys: Mapping[str, CrossSigningKey] | None = None
+    self_signing_keys: Mapping[str, CrossSigningKey] | None = None
+    user_signing_keys: Mapping[str, CrossSigningKey] | None = None
+
+
 class Event(BaseModel):
-    content: dict[str, Any]
+    content: Mapping[str, Any]
     type: str
     sender: str | None = None
 
@@ -202,7 +238,7 @@ class Presence(BaseModel):
 
 
 class StrippedStateEvent(BaseModel):
-    content: dict[str, Any]
+    content: Mapping[str, Any]
     sender: str
     state_key: str
     type: str
@@ -286,7 +322,7 @@ class ToDevice(BaseModel):
 class SyncResponse(BaseModel):
     account_data: AccountData | None = None
     device_lists: DeviceLists | None = None
-    device_one_time_keys_count: dict[str, int] | None = None
+    device_one_time_keys_count: Mapping[str, int] | None = None
     next_batch: str
     presence: Presence | None = None
     rooms: Rooms | None = None

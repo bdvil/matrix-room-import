@@ -44,6 +44,10 @@ def room_send_event(hs_url: str, room_id: str, event_type: str, txn_id: str) -> 
     )
 
 
+def query_key(hs_url: str) -> str:
+    return sanitize_url(hs_url) + "/_matrix/client/v3/keys/query"
+
+
 def sync(
     hs_url: str,
     filter: str | None,

@@ -8,6 +8,7 @@ from matrix_migration.appservice.types import (
     JoinRoomBody,
     JoinRoomResponse,
     PresenceEnum,
+    QueryKeysBody,
     SyncResponse,
 )
 
@@ -98,6 +99,25 @@ class Client:
         LOGGER.info("CLIENT join_room")
         async with ClientSession(headers=self.headers) as session:
             async with session.post(url, json=JoinRoomBody().model_dump()) as response:
+                if response.status == 200:
+                    data = JoinRoomResponse(**await response.json())
+                    return data
+                else:
+                    data = ErrorResponse(**await response.json())
+                    return data
+
+    async def query_keys(
+        self, device_keys: dict[str, list[str]], timeout: int = 10_000
+    ) -> JoinRoomResponse | ErrorResponse | None:
+        url = matrix_api.query_key(self.hs_url)
+        LOGGER.info(f"CLIENT query_keys {url}")
+        async with ClientSession(headers=self.headers) as session:
+            async with session.post(
+                url,
+                json=QueryKeysBody(
+                    device_keys=device_keys, timeout=timeout
+                ).model_dump(),
+            ) as response:
                 if response.status == 200:
                     data = JoinRoomResponse(**await response.json())
                     return data
