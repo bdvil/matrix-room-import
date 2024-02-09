@@ -68,7 +68,7 @@ async def handle_room_member(
     if content.membership == MembershipEnum.invite:
         resp = await client.join_room(event.room_id)
         LOGGER.debug(resp)
-        sync_resp = await client.sync(full_state=True)
+        sync_resp = await client.sync(full_state=True, timeout=1000)
         LOGGER.debug(sync_resp)
 
 
