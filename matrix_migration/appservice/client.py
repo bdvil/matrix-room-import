@@ -1,7 +1,10 @@
 from collections.abc import Mapping, Sequence
+from enum import Enum
+from typing import Any
 from uuid import uuid4
 
 from aiohttp import ClientResponse, ClientSession
+from pydantic import BaseModel
 
 from matrix_migration import LOGGER, matrix_api
 from matrix_migration.appservice.types import (
@@ -11,16 +14,32 @@ from matrix_migration.appservice.types import (
     LoginBody,
     LoginResponse,
     LoginType,
+    MsgType,
+    PingBody,
+    PingResponse,
     PresenceEnum,
+    ProfileDisplayNameBody,
+    ProfileDisplayNameResponse,
+    ProfileResponse,
     QueryKeysBody,
     QueryKeysResponse,
+    RoomMessage,
+    RoomSendEventResponse,
     SyncResponse,
     UserIdentifierUser,
+    WhoAmIResponse,
 )
 
 
 def new_txn() -> str:
     return str(uuid4())
+
+
+class HTTPMethod(str, Enum):
+    post = "POST"
+    put = "PUT"
+    get = "GET"
+    delete = "DELETE"
 
 
 class Client:
@@ -35,130 +54,124 @@ class Client:
         self.device_id: str | None = None
         self.access_token: str | None = None
 
+    async def request(
+        self, url: str, method: HTTPMethod, body: Any = None
+    ) -> tuple[ClientResponse, Any]:
+        if body is None:
+            body = {}
+        async with ClientSession(headers=self.headers) as session:
+            async with session.request(method.value, url, json=body) as response:
+                data = await response.json()
+                return response, data
+
     async def ping(
         self,
         transaction_id: str | None = None,
-    ) -> ClientResponse | None:
+    ) -> PingResponse | ErrorResponse:
         url = matrix_api.ping(self.hs_url, self.as_id)
-        data = {}
-        if transaction_id is not None:
-            data["transaction_id"] = transaction_id
-            LOGGER.info("CLIENT ping")
-            async with ClientSession(headers=self.headers) as session:
-                async with session.post(url, json=data) as response:
-                    data = await response.json()
-                    LOGGER.debug(
-                        "CLIENT ping data: %s",
-                        {"headers": response.headers, "body": data},
-                    )
-                    return response
+        LOGGER.info(f"CLIENT ping {url}")
 
-    async def whoami(self, user_id: str) -> ClientResponse | None:
+        body = PingBody(transaction_id=transaction_id)
+        response, data = await self.request(
+            url, HTTPMethod.post, body.model_dump(exclude_none=True)
+        )
+        LOGGER.debug(
+            "CLIENT ping data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        if response.status == 200:
+            return PingResponse(**data)
+        return ErrorResponse(**data, statuscode=response.status)
+
+    async def whoami(self, user_id: str) -> WhoAmIResponse | ErrorResponse:
         url = matrix_api.whoami(self.hs_url, user_id)
-        LOGGER.info("CLIENT whoami")
-        async with ClientSession(headers=self.headers) as session:
-            async with session.get(url, json={}) as response:
-                data = await response.json()
-                LOGGER.debug(
-                    "CLIENT whoami data: %s",
-                    {"headers": response.headers, "body": data},
-                )
-                return response
+        LOGGER.info(f"CLIENT whoami {url}")
+        response, data = await self.request(url, HTTPMethod.get)
 
-    async def profile(self, user_id: str) -> ClientResponse | None:
+        LOGGER.debug(
+            "CLIENT whoami data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        if response.status == 200:
+            return WhoAmIResponse(**data)
+        return ErrorResponse(**data, statuscode=response.status)
+
+    async def profile(self, user_id: str) -> ProfileResponse | ErrorResponse:
         url = matrix_api.profile(self.hs_url, user_id)
         LOGGER.info("CLIENT profile")
-        async with ClientSession(headers=self.headers) as session:
-            async with session.get(url, json={}) as response:
-                data = await response.json()
-                LOGGER.debug(
-                    "CLIENT profile data: %s",
-                    {"headers": response.headers, "body": data},
-                )
-                return response
+        response, data = await self.request(url, HTTPMethod.get)
+        LOGGER.debug(
+            "CLIENT profile data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        if response.status == 200:
+            return ProfileResponse(**data)
+        return ErrorResponse(**data, statuscode=response.status)
 
     async def set_displayname(
         self, user_id: str, displayname: str
-    ) -> ClientResponse | None:
+    ) -> ProfileDisplayNameResponse | ErrorResponse:
         url = matrix_api.profile_displayname(self.hs_url, user_id)
         LOGGER.info("CLIENT set displayname")
-        async with ClientSession(headers=self.headers) as session:
-            async with session.put(url, json={"displayname": displayname}) as response:
-                data = await response.json()
-                LOGGER.debug(
-                    "CLIENT set displayname data: %s",
-                    {"headers": response.headers, "body": data},
-                )
-                return response
+        body = ProfileDisplayNameBody(displayname=displayname)
+        response, data = await self.request(url, HTTPMethod.put, body.model_dump())
+        if response.status == 200:
+            return ProfileDisplayNameResponse(**data)
+        return ErrorResponse(**data, statuscode=response.status)
 
     async def update_bot_profile(
         self, user_id: str, displayname: str
-    ) -> ClientResponse | None:
-        response = await self.profile(user_id)
-        if response is None or response.status == 404:
-            response = await self.set_displayname(user_id, displayname)
-        assert response is not None
-        body = await response.json()
-        if body["displayname"] != displayname:
-            response = await self.set_displayname(user_id, displayname)
-        return await self.profile(user_id)
+    ) -> ProfileResponse | ErrorResponse:
+        profile = await self.profile(user_id)
+        if isinstance(profile, ErrorResponse) and profile.statuscode == 404:
+            await self.set_displayname(user_id, displayname)
+        elif isinstance(profile, ProfileResponse):
+            if profile.displayname != displayname:
+                await self.set_displayname(user_id, displayname)
+            return await self.profile(user_id)
+        return profile
 
-    async def join_room(self, room_id: str) -> JoinRoomResponse | ErrorResponse | None:
+    async def join_room(self, room_id: str) -> JoinRoomResponse | ErrorResponse:
         url = matrix_api.room_join(self.hs_url, room_id)
         LOGGER.info("CLIENT join_room")
-        async with ClientSession(headers=self.headers) as session:
-            async with session.post(url, json=JoinRoomBody().model_dump()) as response:
-                if response.status == 200:
-                    data = JoinRoomResponse(**await response.json())
-                    return data
-                else:
-                    data = ErrorResponse(**await response.json())
-                    return data
+        response, data = await self.request(
+            url, HTTPMethod.post, JoinRoomBody().model_dump()
+        )
+        if response.status == 200:
+            return JoinRoomResponse(**data)
+        return ErrorResponse(**data)
 
-    async def login(
-        self, user_id_or_localpart: str
-    ) -> LoginResponse | ErrorResponse | None:
+    async def login(self, user_id_or_localpart: str) -> LoginResponse | ErrorResponse:
         url = matrix_api.login(self.hs_url)
         LOGGER.info(f"CLIENT login {url}")
         body = LoginBody(
             type=LoginType.application_service,
             identifier=UserIdentifierUser(user=user_id_or_localpart),
         )
-        async with ClientSession(headers=self.headers) as session:
-            async with session.post(
-                url,
-                json=body.model_dump(exclude_none=True),
-            ) as response:
-                if response.status == 200:
-                    resp_data = await response.json()
-                    data = LoginResponse(**resp_data)
-                    LOGGER.debug(data)
-                    self.device_id = data.device_id
-                    self.access_token = data.access_token
-                    return data
-                else:
-                    data = ErrorResponse(**await response.json())
-                    LOGGER.debug(data)
-                    return data
+        response, data = await self.request(
+            url, HTTPMethod.post, body.model_dump(exclude_none=True)
+        )
+        if response.status == 200:
+            data = LoginResponse(**data)
+            LOGGER.debug(data)
+            self.device_id = data.device_id
+            self.access_token = data.access_token
+            return data
+        data = ErrorResponse(**data)
+        LOGGER.debug(data)
+        return data
 
     async def query_keys(
         self, device_keys: Mapping[str, Sequence[str]], timeout: int = 10_000
-    ) -> QueryKeysResponse | ErrorResponse | None:
+    ) -> QueryKeysResponse | ErrorResponse:
         url = matrix_api.query_key(self.hs_url)
         LOGGER.info(f"CLIENT query_keys {url}")
-        async with ClientSession(headers=self.headers) as session:
-            async with session.post(
-                url,
-                json=QueryKeysBody(
-                    device_keys=device_keys, timeout=timeout
-                ).model_dump(),
-            ) as response:
-                if response.status == 200:
-                    data = QueryKeysResponse(**await response.json())
-                    return data
-                else:
-                    data = ErrorResponse(**await response.json())
-                    return data
+        body = QueryKeysBody(device_keys=device_keys, timeout=timeout).model_dump()
+        response, data = await self.request(url, HTTPMethod.post, body)
+        if response.status == 200:
+            data = QueryKeysResponse(**await response.json())
+            return data
+        return ErrorResponse(**await response.json())
 
     async def get_self_keys(
         self, device_keys: Mapping[str, Sequence[str]], timeout: int = 10_000
@@ -172,29 +185,28 @@ class Client:
         room_id: str,
         body: str,
         txn_id: str | None = None,
-    ) -> str | ErrorResponse | None:
+    ) -> RoomSendEventResponse | ErrorResponse:
         txn_id = txn_id or new_txn()
         url = matrix_api.room_send_event(self.hs_url, room_id, event_type, txn_id)
         LOGGER.info("CLIENT send_event")
-        async with ClientSession(headers=self.headers) as session:
-            async with session.put(
-                url, json={"body": body, "msgtype": "m.text"}
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    event_id: str = data["event_id"]
-                    LOGGER.debug(
-                        "CLIENT send_event: %s",
-                        {"headers": response.headers, "event_id": event_id},
-                    )
-                    return event_id
-                else:
-                    data = ErrorResponse(**await response.json())
-                    LOGGER.debug(
-                        "CLIENT send_event error data: %s",
-                        {"headers": response.headers, "body": data},
-                    )
-                    return data
+        req_body = RoomMessage(body=body, msgtype=MsgType.text)
+        response, data = await self.request(
+            url, HTTPMethod.put, req_body.model_dump(exclude_defaults=True)
+        )
+
+        if response.status == 200:
+            data = RoomSendEventResponse(**data)
+            LOGGER.debug(
+                "CLIENT send_event: %s",
+                {"headers": response.headers, "event_id": data.event_id},
+            )
+            return data
+        data = ErrorResponse(**await response.json())
+        LOGGER.debug(
+            "CLIENT send_event error data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        return data
 
     async def sync(
         self,
@@ -204,16 +216,12 @@ class Client:
         since: str | None = None,
         timeout: int = 0,
         user_id: str | None = None,
-    ) -> SyncResponse | ErrorResponse | None:
+    ) -> SyncResponse | ErrorResponse:
         url = matrix_api.sync(
             self.hs_url, filter, full_state, set_presence, since, timeout, user_id
         )
         LOGGER.info(f"CLIENT sync {url}")
-        async with ClientSession(headers=self.headers) as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = SyncResponse(**await response.json())
-                    return data
-                else:
-                    data = ErrorResponse(**await response.json())
-                    return data
+        response, data = await self.request(url, HTTPMethod.get)
+        if response.status == 200:
+            return SyncResponse(**data)
+        return ErrorResponse(**data)

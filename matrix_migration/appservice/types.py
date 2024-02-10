@@ -5,7 +5,21 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, RootModel, field_serializer, model_validator
 
 
+class MsgType(str, Enum):
+    text = "m.text"
+    emote = "m.emote"
+    image = "m.image"
+    video = "m.video"
+    file = "m.file"
+    audio = "m.audio"
+    location = "m.location"
+    notice = "m.notice"
+    server_notice = "m.server_notice"
+    key_verification_request = "m.key.verification.request"
+
+
 class ErrorResponse(BaseModel):
+    statuscode: int
     errcode: str
     error: str | None = None
     retry_after_ms: int | None = None
@@ -76,7 +90,7 @@ class ImageInfo(BaseModel):
 
 
 class RoomMessage(BaseModel):
-    msgtype: str
+    msgtype: MsgType
     body: str
 
     format: str | None = None
@@ -86,6 +100,10 @@ class RoomMessage(BaseModel):
     filename: str | None = None
     info: ImageInfo | None = None
     url: str | None = None
+
+    @field_serializer("msgtype")
+    def serialize_msgtype(self, value: MsgType, _) -> str:
+        return value.value
 
     @model_validator(mode="after")
     def room_id_validation(self):
@@ -222,8 +240,35 @@ class LoginBody(BaseModel):
     type: LoginType
 
     @field_serializer("type")
-    def serialize_type(self, value: LoginType, _):
+    def serialize_type(self, value: LoginType, _) -> str:
         return value.value
+
+
+class PingBody(BaseModel):
+    transaction_id: str | None = None
+
+
+class PingResponse(BaseModel):
+    duration_ms: int
+
+
+class WhoAmIResponse(BaseModel):
+    device_id: str | None = None
+    is_guest: bool = False
+    user_id: str
+
+
+class ProfileResponse(BaseModel):
+    avatar_url: str | None = None
+    displayname: str | None = None
+
+
+class ProfileDisplayNameBody(BaseModel):
+    displayname: str
+
+
+class ProfileDisplayNameResponse(BaseModel):
+    pass
 
 
 class HomeserverInformation(BaseModel):
@@ -249,6 +294,10 @@ class LoginResponse(BaseModel):
     refresh_token: str | None = None
     user_id: str
     well_known: DiscoveryInformation | None = None
+
+
+class RoomSendEventResponse(BaseModel):
+    event_id: str
 
 
 Signatures = RootModel[Mapping[str, Mapping[str, str]]]
