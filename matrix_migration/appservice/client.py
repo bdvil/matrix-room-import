@@ -4,7 +4,6 @@ from typing import Any
 from uuid import uuid4
 
 from aiohttp import ClientResponse, ClientSession
-from pydantic import BaseModel
 
 from matrix_migration import LOGGER, matrix_api
 from matrix_migration.appservice.types import (
