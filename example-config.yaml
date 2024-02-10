@@ -6,11 +6,13 @@ homeserver_to:
     server_name: new-example.com
 
 
-as_token: set here
-hs_token: set here
-as_id: set here
-bot_user: set here
-bot_name: Matrix Migration Bot
+hs_token: Homeserver token
+as_token: Appservice token
+as_id: Appservice id
+as_localpart: Appservice localpart
+
+bot_username: "@mamibot:example.com"
+bot_displayname: MaMi Bot
 
 # Rooms with these user id will not be migrated (e.g. rooms from bridges)
 filter_room_with: []

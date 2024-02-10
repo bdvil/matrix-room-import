@@ -33,7 +33,7 @@ async def handle_test(request: Request) -> Response:
     try:
         config: Config = request.app["config"]
         client: Client = request.app["client"]
-        resp = await client.profile(config.bot_user)
+        resp = await client.profile(config.bot_username)
         LOGGER.info(
             "TEST success: %s",
             {
@@ -75,6 +75,6 @@ def serve():
             web.get("/_matrix/app/v1/thirdparty/user/{protocol}", handle),
         ]
     )
-    run(client.update_bot_profile(config.bot_user, config.bot_name))
-    run(client.get_self_keys({config.bot_user: []}))
+    run(client.update_bot_profile(config.bot_username, config.bot_displayname))
+    # run(client.get_self_keys({config.bot_username: []}))
     run_app(app, port=config.port)

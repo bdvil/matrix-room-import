@@ -15,11 +15,13 @@ class Config(BaseModel):
     homeserver_from: HomeServer
     homeserver_to: HomeServer
 
-    as_token: str
     hs_token: str
+    as_token: str
     as_id: str
-    bot_user: str
-    bot_name: str
+    as_localpart: str
+
+    bot_username: str
+    bot_displayname: str
 
     # Rooms with these user id will not be migrated (e.g. rooms from bridges)
     filter_room_with: list[str]
