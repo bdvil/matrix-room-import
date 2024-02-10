@@ -204,7 +204,7 @@ class UserIdentifierPhone(BaseModel):
     phone: str
 
 
-class LoginType(Enum):
+class LoginType(str, Enum):
     password = "m.login.password"
     token = "m.login.token"
 
