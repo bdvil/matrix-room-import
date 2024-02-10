@@ -1,27 +1,29 @@
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
 
 
-class Store(ABC):
+class Store(ABC, Generic[T]):
     @abstractmethod
-    def append(self, content: Any) -> None: ...
+    def append(self, content: T) -> None: ...
 
     @abstractmethod
-    def __contains__(self, value: Any) -> bool: ...
+    def __contains__(self, value: T) -> bool: ...
 
     @abstractmethod
-    def __getitem__(self, value: Any) -> Any: ...
+    def __getitem__(self, value: T) -> T: ...
 
 
-class RAMStore(Store):
+class RAMStore(Store, Generic[T]):
     def __init__(self):
-        self._storage = []
+        self._storage: list[T] = []
 
-    def append(self, content: Any) -> None:
+    def append(self, content: T) -> None:
         self._storage.append(content)
 
-    def __contains__(self, value: Any) -> bool:
+    def __contains__(self, value: T) -> bool:
         return value in self._storage
 
-    def __getitem__(self, value: int) -> Any:
+    def __getitem__(self, value: int) -> T:
         return self._storage[value]

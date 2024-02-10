@@ -77,4 +77,6 @@ def serve():
     )
     run(client.update_bot_profile(config.bot_username, config.bot_displayname))
     run(client.login(config.bot_username))
+    if client.access_token is None:
+        LOGGER.error("Could not login.")
     run_app(app, port=config.port)

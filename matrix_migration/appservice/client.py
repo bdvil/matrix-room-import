@@ -32,6 +32,9 @@ class Client:
             "Authorization": f"Bearer {as_token}",
         }
 
+        self.device_id: str | None = None
+        self.access_token: str | None = None
+
     async def ping(
         self,
         transaction_id: str | None = None,
@@ -121,7 +124,6 @@ class Client:
             type=LoginType.application_service,
             identifier=UserIdentifierUser(user=user_id_or_localpart),
         )
-        print(body.model_dump(exclude_none=True))
         async with ClientSession(headers=self.headers) as session:
             async with session.post(
                 url,
@@ -129,9 +131,10 @@ class Client:
             ) as response:
                 if response.status == 200:
                     resp_data = await response.json()
-                    LOGGER.debug(resp_data)
                     data = LoginResponse(**resp_data)
                     LOGGER.debug(data)
+                    self.device_id = data.device_id
+                    self.access_token = data.access_token
                     return data
                 else:
                     data = ErrorResponse(**await response.json())
