@@ -125,10 +125,12 @@ class Client:
         async with ClientSession(headers=self.headers) as session:
             async with session.post(
                 url,
-                json=body.model_dump(),
+                json=body.model_dump(exclude_defaults=True),
             ) as response:
                 if response.status == 200:
-                    data = LoginResponse(**await response.json())
+                    resp_data = await response.json()
+                    LOGGER.debug(resp_data)
+                    data = LoginResponse(**resp_data)
                     LOGGER.debug(data)
                     return data
                 else:

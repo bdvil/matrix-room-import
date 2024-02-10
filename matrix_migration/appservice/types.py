@@ -232,7 +232,9 @@ class IdentityServerInformation(BaseModel):
 
 class DiscoveryInformation(BaseModel):
     homeserver: HomeserverInformation = Field(alias="m.homeserver")
-    identity_server: IdentityServerInformation = Field(alias="m.identity_server")
+    identity_server: IdentityServerInformation | None = Field(
+        alias="m.identity_server", default=None
+    )
 
 
 class LoginResponse(BaseModel):
