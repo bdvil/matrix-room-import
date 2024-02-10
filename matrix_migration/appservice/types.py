@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from enum import Enum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, RootModel, model_validator
+from pydantic import BaseModel, Field, RootModel, field_serializer, model_validator
 
 
 class ErrorResponse(BaseModel):
@@ -220,6 +220,10 @@ class LoginBody(BaseModel):
     refresh_token: bool = False
     token: str | None = None
     type: LoginType
+
+    @field_serializer("type")
+    def serialize_type(self, value: LoginType, _):
+        return value.value
 
 
 class HomeserverInformation(BaseModel):

@@ -121,11 +121,11 @@ class Client:
             type=LoginType.application_service,
             identifier=UserIdentifierUser(user=user_id_or_localpart),
         )
-        print(body.model_dump())
+        print(body.model_dump(exclude_none=True))
         async with ClientSession(headers=self.headers) as session:
             async with session.post(
                 url,
-                json=body.model_dump(exclude_defaults=True),
+                json=body.model_dump(exclude_none=True),
             ) as response:
                 if response.status == 200:
                     resp_data = await response.json()
