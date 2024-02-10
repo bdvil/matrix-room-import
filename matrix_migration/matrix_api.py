@@ -48,6 +48,10 @@ def query_key(hs_url: str) -> str:
     return sanitize_url(hs_url) + "/_matrix/client/v3/keys/query"
 
 
+def login(hs_url: str) -> str:
+    return sanitize_url(hs_url) + "/_matrix/client/v3/login"
+
+
 def sync(
     hs_url: str,
     filter: str | None,

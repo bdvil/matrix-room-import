@@ -8,10 +8,14 @@ from matrix_migration.appservice.types import (
     ErrorResponse,
     JoinRoomBody,
     JoinRoomResponse,
+    LoginBody,
+    LoginResponse,
+    LoginType,
     PresenceEnum,
     QueryKeysBody,
     QueryKeysResponse,
     SyncResponse,
+    UserIdentifierUser,
 )
 
 
@@ -106,6 +110,30 @@ class Client:
                     return data
                 else:
                     data = ErrorResponse(**await response.json())
+                    return data
+
+    async def login(
+        self, user_id_or_localpart: str
+    ) -> LoginResponse | ErrorResponse | None:
+        url = matrix_api.login(self.hs_url)
+        LOGGER.info(f"CLIENT login {url}")
+        body = LoginBody(
+            type=LoginType.token,
+            identifier=UserIdentifierUser(user=user_id_or_localpart),
+            token=self.as_token,
+        )
+        async with ClientSession(headers=self.headers) as session:
+            async with session.post(
+                url,
+                json=body.model_dump(),
+            ) as response:
+                if response.status == 200:
+                    data = LoginResponse(**await response.json())
+                    LOGGER.debug(data)
+                    return data
+                else:
+                    data = ErrorResponse(**await response.json())
+                    LOGGER.debug(data)
                     return data
 
     async def query_keys(

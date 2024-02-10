@@ -1,6 +1,6 @@
 from collections.abc import Mapping, Sequence
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, RootModel, model_validator
 
@@ -185,6 +185,63 @@ class JoinRoomResponse(BaseModel):
 class QueryKeysBody(BaseModel):
     device_keys: Mapping[str, Sequence[str]]
     timeout: int
+
+
+class UserIdentifierUser(BaseModel):
+    type: Literal["m.id.user"] = "m.id.user"
+    user: str  # user_id or user localpart
+
+
+class UserIdentifierThirdParty(BaseModel):
+    type: Literal["m.id.thirdparty"] = "m.id.thirdparty"
+    medium: str
+    address: str
+
+
+class UserIdentifierPhone(BaseModel):
+    type: Literal["m.id.phone"] = "m.id.phone"
+    country: str
+    phone: str
+
+
+class LoginType(Enum):
+    password = "m.login.password"
+    token = "m.login.token"
+
+
+class LoginBody(BaseModel):
+    device_id: str | None = None
+    identifier: (
+        UserIdentifierUser | UserIdentifierThirdParty | UserIdentifierPhone | None
+    ) = Field(discriminator="type", default=None)
+    initial_device_display_name: str | None = None
+    password: str | None = None
+    refresh_token: bool = False
+    token: str | None = None
+    type: LoginType
+
+
+class HomeserverInformation(BaseModel):
+    base_url: str
+
+
+class IdentityServerInformation(BaseModel):
+    base_url: str
+
+
+class DiscoveryInformation(BaseModel):
+    homeserver: HomeserverInformation = Field(alias="m.homeserver")
+    identity_server: IdentityServerInformation = Field(alias="m.identity_server")
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    device_id: str
+    expires_in_ms: int | None = None
+    home_server: str | None = None  # deprecated
+    refresh_token: str | None = None
+    user_id: str
+    well_known: DiscoveryInformation | None = None
 
 
 Signatures = RootModel[Mapping[str, Mapping[str, str]]]
