@@ -207,6 +207,7 @@ class UserIdentifierPhone(BaseModel):
 class LoginType(str, Enum):
     password = "m.login.password"
     token = "m.login.token"
+    application_service = "m.login.application_service"
 
 
 class LoginBody(BaseModel):

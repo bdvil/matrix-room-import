@@ -118,10 +118,10 @@ class Client:
         url = matrix_api.login(self.hs_url)
         LOGGER.info(f"CLIENT login {url}")
         body = LoginBody(
-            type=LoginType.token,
+            type=LoginType.application_service,
             identifier=UserIdentifierUser(user=user_id_or_localpart),
-            token=self.as_token,
         )
+        print(body.model_dump())
         async with ClientSession(headers=self.headers) as session:
             async with session.post(
                 url,
