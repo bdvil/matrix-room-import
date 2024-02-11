@@ -54,6 +54,14 @@ async def handle_events(
                 )
 
 
+async def handle_ephemeral_events(
+    client: Client, config: Config, events: Sequence[Event], txn_id: str
+):
+    for event in events:
+        LOGGER.debug(f"Transaction {txn_id} type= {event.type}")
+        LOGGER.debug("%s", event)
+
+
 async def handle_to_device_events(
     client: Client, config: Config, events: Sequence[ToDeviceEvent], txn_id: str
 ):
@@ -86,7 +94,7 @@ async def handle_transaction(request: web.Request) -> web.Response:
     events = types.ClientEvents(**data)
     await handle_events(client, config, events.events, txn_id)
     if events.ephemeral is not None:
-        await handle_events(client, config, events.ephemeral, txn_id)
+        await handle_ephemeral_events(client, config, events.ephemeral, txn_id)
     if events.to_device is not None:
         await handle_to_device_events(client, config, events.to_device, txn_id)
 
