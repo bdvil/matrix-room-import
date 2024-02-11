@@ -81,11 +81,14 @@ async def handle_transaction(request: web.Request) -> web.Response:
         LOGGER.debug("Transaction already handled.")
         return web.json_response({}, status=200)
 
-    events = types.ClientEvents(**await request.json())
-    LOGGER.debug(events)
+    data = await request.json()
+    LOGGER.debug(data)
+    events = types.ClientEvents(**data)
     await handle_events(client, config, events.events, txn_id)
-    await handle_events(client, config, events.ephemeral, txn_id)
-    await handle_to_device_events(client, config, events.to_device, txn_id)
+    if events.ephemeral is not None:
+        await handle_events(client, config, events.ephemeral, txn_id)
+    if events.to_device is not None:
+        await handle_to_device_events(client, config, events.to_device, txn_id)
 
     txn_store.append(txn_id)
     return web.json_response({}, status=200)

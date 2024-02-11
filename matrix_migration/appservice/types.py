@@ -197,11 +197,11 @@ class ClientEvent(Event):
 
 class ClientEvents(BaseModel):
     events: Sequence[ClientEvent]
-    ephemeral: Sequence[ClientEvent] = Field(
-        alias="de.sorunome.msc2409.ephemeral", default=[]
+    ephemeral: Sequence[ClientEvent] | None = Field(
+        alias="de.sorunome.msc2409.ephemeral", default=None
     )
-    to_device: Sequence[ToDeviceEvent] = Field(
-        alias="de.sorunome.msc2409.to_device", default=[]
+    to_device: Sequence[ToDeviceEvent] | None = Field(
+        alias="de.sorunome.msc2409.to_device", default=None
     )
 
 
