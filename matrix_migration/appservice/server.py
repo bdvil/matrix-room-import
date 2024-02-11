@@ -71,15 +71,18 @@ async def handle_transaction(request: web.Request) -> web.Response:
     client: Client = request.app["client"]
 
     if not check_headers(request, config.hs_token):
+        LOGGER.debug("Forbidden transaction.")
         return web.json_response({}, status=403)
 
     txn_id = request.match_info["txnId"]
     txn_store: Store = request.app["txn_store"]
 
     if txn_id in txn_store:
+        LOGGER.debug("Transaction already handled.")
         return web.json_response({}, status=200)
 
     events = types.ClientEvents(**await request.json())
+    LOGGER.debug(events)
     await handle_events(client, config, events.events, txn_id)
     if events.ephemeral is not None:
         await handle_events(client, config, events.ephemeral, txn_id)
