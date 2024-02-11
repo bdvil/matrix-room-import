@@ -1,9 +1,18 @@
+from collections.abc import Sequence
+
 from aiohttp import web
 
 import matrix_migration.appservice.types as types
 from matrix_migration import LOGGER
 from matrix_migration.appservice.client import Client
-from matrix_migration.appservice.types import MembershipEnum, RoomMember, RoomMessage
+from matrix_migration.appservice.types import (
+    ClientEvent,
+    Event,
+    MembershipEnum,
+    RoomMember,
+    RoomMessage,
+    ToDeviceEvent,
+)
 from matrix_migration.config import Config
 from matrix_migration.store import Store
 
@@ -27,6 +36,32 @@ async def handle_ping(request: web.Request) -> web.Response:
     return web.json_response({}, status=200)
 
 
+async def handle_events(
+    client: Client, config: Config, events: Sequence[ClientEvent], txn_id: str
+):
+    for event in events:
+        LOGGER.debug(f"Transaction {txn_id} type= {event.type}")
+        LOGGER.debug("%s", event)
+
+        match event.type:
+            case "m.room.member":
+                content = RoomMember(**event.content)
+                await handle_room_member(client, event, content)
+            case "m.room.message":
+                content = RoomMessage(**event.content)
+                await handle_room_message_event(
+                    client, event, content, config.bot_username
+                )
+
+
+async def handle_to_device_events(
+    client: Client, config: Config, events: Sequence[ToDeviceEvent], txn_id: str
+):
+    for event in events:
+        LOGGER.debug(f"Transaction {txn_id} type= {event.type}")
+        LOGGER.debug("%s", event)
+
+
 async def handle_transaction(request: web.Request) -> web.Response:
     LOGGER.debug(
         "SERVER transaction data: %s",
@@ -45,20 +80,11 @@ async def handle_transaction(request: web.Request) -> web.Response:
         return web.json_response({}, status=200)
 
     events = types.ClientEvents(**await request.json())
-    for event in events.events:
-        LOGGER.debug(f"Transaction {txn_id} type= {event.type}")
-        LOGGER.debug("%s", event)
-        LOGGER.debug("%s", event.content)
-
-        match event.type:
-            case "m.room.member":
-                content = RoomMember(**event.content)
-                await handle_room_member(client, event, content)
-            case "m.room.message":
-                content = RoomMessage(**event.content)
-                await handle_room_message_event(
-                    client, event, content, config.bot_username
-                )
+    await handle_events(client, config, events.events, txn_id)
+    if events.ephemeral is not None:
+        await handle_events(client, config, events.ephemeral, txn_id)
+    if events.to_device is not None:
+        await handle_to_device_events(client, config, events.to_device, txn_id)
 
     txn_store.append(txn_id)
     return web.json_response({}, status=200)
