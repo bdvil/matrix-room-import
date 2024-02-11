@@ -70,8 +70,8 @@ async def handle_room_member(
     if content.membership == MembershipEnum.invite:
         resp = await client.join_room(event.room_id)
         LOGGER.debug(resp)
-        query_key_resp = await client.query_keys({event.sender: []})
-        LOGGER.debug(query_key_resp)
+        # query_key_resp = await client.query_keys({event.sender: []})
+        # LOGGER.debug(query_key_resp)
 
 
 async def handle_room_message_event(
