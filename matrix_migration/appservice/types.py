@@ -176,19 +176,29 @@ class ClientEventWithoutRoomID(BaseModel):
     unsigned: UnsignedDataWithoutRoomId | None = None
 
 
-class ClientEvent(BaseModel):
+class Event(BaseModel):
     content: Mapping[str, Any]
+    type: str
+    sender: str | None = None
+
+
+class ToDeviceEvent(Event):
+    to_user_id: str
+    to_device_id: str
+
+
+class ClientEvent(Event):
     event_id: str
     origin_server_ts: int
-    sender: str
     state_key: str | None = None
-    type: str
     unsigned: UnsignedData | None = None
     room_id: str
 
 
 class ClientEvents(BaseModel):
     events: Sequence[ClientEvent]
+    ephemeral: Sequence[ClientEvent] | None = None
+    to_device: Sequence[ToDeviceEvent] | None = None
 
 
 class JoinRoomBody(BaseModel):
@@ -329,12 +339,6 @@ class QueryKeysResponse(BaseModel):
     master_keys: Mapping[str, CrossSigningKey] | None = None
     self_signing_keys: Mapping[str, CrossSigningKey] | None = None
     user_signing_keys: Mapping[str, CrossSigningKey] | None = None
-
-
-class Event(BaseModel):
-    content: Mapping[str, Any]
-    type: str
-    sender: str | None = None
 
 
 class AccountData(BaseModel):
