@@ -197,8 +197,12 @@ class ClientEvent(Event):
 
 class ClientEvents(BaseModel):
     events: Sequence[ClientEvent]
-    ephemeral: Sequence[ClientEvent] | None = None
-    to_device: Sequence[ToDeviceEvent] | None = None
+    ephemeral: Sequence[ClientEvent] = Field(
+        alias="de.sorunome.msc2409.ephemeral", default=[]
+    )
+    to_device: Sequence[ToDeviceEvent] = Field(
+        alias="de.sorunome.msc2409.to_device", default=[]
+    )
 
 
 class JoinRoomBody(BaseModel):
