@@ -6,8 +6,9 @@ from aiohttp.web import Application, Request, Response, run_app
 
 import matrix_migration.appservice.server as server
 from matrix_migration import LOGGER
+from matrix_migration.appkeys import client_key, config_key, txn_store_key
 from matrix_migration.appservice.client import Client
-from matrix_migration.config import Config, load_config
+from matrix_migration.config import load_config
 from matrix_migration.store import RAMStore
 
 
@@ -31,8 +32,8 @@ async def handle_log(request: Request) -> Response:
 
 async def handle_test(request: Request) -> Response:
     try:
-        config: Config = request.app["config"]
-        client: Client = request.app["client"]
+        config = request.app[config_key]
+        client = request.app[client_key]
         resp = await client.profile(config.bot_username)
         LOGGER.info(
             "TEST success: %s",
@@ -53,10 +54,10 @@ def serve():
     config = load_config()
     LOGGER.debug("CONFIG: %s", config.model_dump())
     app = Application()
-    app["config"] = config
-    app["txn_store"] = RAMStore()
+    app[config_key] = config
+    app[txn_store_key] = RAMStore()
     client = Client(config.homeserver_from.url, config.as_token, config.as_id)
-    app["client"] = client
+    app[client_key] = client
     app.add_routes(
         [
             web.get("/test", handle_test),

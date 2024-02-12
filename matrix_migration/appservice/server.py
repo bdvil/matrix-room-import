@@ -4,6 +4,7 @@ from aiohttp import web
 
 import matrix_migration.appservice.types as types
 from matrix_migration import LOGGER
+from matrix_migration.appkeys import client_key, config_key, txn_store_key
 from matrix_migration.appservice.client import Client
 from matrix_migration.appservice.types import (
     ClientEvent,
@@ -14,7 +15,6 @@ from matrix_migration.appservice.types import (
     ToDeviceEvent,
 )
 from matrix_migration.config import Config
-from matrix_migration.store import Store
 
 
 def check_headers(request: web.Request, hs_token: str) -> bool:
@@ -71,15 +71,15 @@ async def handle_to_device_events(
 
 
 async def handle_transaction(request: web.Request) -> web.Response:
-    config: Config = request.app["config"]
-    client: Client = request.app["client"]
+    config = request.app[config_key]
+    client = request.app[client_key]
 
     if not check_headers(request, config.hs_token):
         LOGGER.debug("Forbidden transaction.")
         return web.json_response({}, status=403)
 
     txn_id = request.match_info["txnId"]
-    txn_store: Store = request.app["txn_store"]
+    txn_store = request.app[txn_store_key]
 
     if txn_id in txn_store:
         LOGGER.debug("Transaction already handled.")
