@@ -59,7 +59,7 @@ class BotInfos:
         async with await AsyncConnection.connect(self.conninfo) as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    "INSERT INTO bot_infos (key, value) SET (%s, %s)",
+                    "INSERT INTO bot_infos (key, value) VALUES (%s, %s)",
                     (key, value),
                 )
                 await conn.commit()
