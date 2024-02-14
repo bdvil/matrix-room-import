@@ -40,19 +40,15 @@ class BotInfos:
         self._device_id: str | None = None
         self._access_token: str | None = None
 
-        self._synced = False
-
-    async def _get_fields(self):
+    async def sync(self):
         async with await AsyncConnection.connect(self.conninfo) as conn:
             async with conn.cursor() as cur:
                 await cur.execute("SELECT key, value FROM bot_infos")
                 async for record in cur:
                     match record[0]:
                         case "device_id":
-                            LOGGER.debug(f"device_id {record[1]}")
                             self._device_id = record[1]
                         case "access_token":
-                            LOGGER.debug(f"access_token {record[1]}")
                             self._access_token = record[1]
 
     async def _set_key(self, key: str, value: str):
@@ -65,15 +61,11 @@ class BotInfos:
                 await conn.commit()
 
     @property
-    async def device_id(self):
-        if not self._synced:
-            await self._get_fields()
+    def device_id(self):
         return self._device_id
 
     @property
-    async def access_token(self):
-        if not self._synced:
-            await self._get_fields()
+    def access_token(self):
         return self._access_token
 
     async def set_device_id(self, device_id: str):

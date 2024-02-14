@@ -143,10 +143,13 @@ class Client:
 
     async def login(self, user_id_or_localpart: str) -> LoginResponse | ErrorResponse:
         url = matrix_api.login(self.hs_url)
+        await self.bot_infos.sync()
+
         LOGGER.info(f"CLIENT login {url}")
+
         LOGGER.debug(f"device_id pre login: {self.bot_infos.device_id}")
         body = LoginBody(
-            device_id=await self.bot_infos.device_id,
+            device_id=self.bot_infos.device_id,
             type=LoginType.application_service,
             identifier=UserIdentifierUser(user=user_id_or_localpart),
         )
