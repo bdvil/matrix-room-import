@@ -29,6 +29,7 @@ from matrix_migration.appservice.types import (
     UserIdentifierUser,
     WhoAmIResponse,
 )
+from matrix_migration.store import BotInfos
 
 
 def new_txn() -> str:
@@ -42,14 +43,8 @@ class HTTPMethod(str, Enum):
     delete = "DELETE"
 
 
-@dataclass
-class ClientState:
-    device: str | None = None
-    access_token: str | None = None
-
-
 class Client:
-    def __init__(self, hs_url: str, as_token: str, as_id: str):
+    def __init__(self, hs_url: str, as_token: str, as_id: str, db_conninfo: str):
         self.hs_url = hs_url
         self.as_token = as_token
         self.as_id = as_id
@@ -57,9 +52,7 @@ class Client:
             "Authorization": f"Bearer {as_token}",
         }
 
-        self.state = ClientState()
-        self.device_id: str | None = None
-        self.access_token: str | None = None
+        self.bot_infos = BotInfos(db_conninfo)
 
     async def request(
         self, url: str, method: HTTPMethod, body: Any = None
@@ -151,7 +144,9 @@ class Client:
     async def login(self, user_id_or_localpart: str) -> LoginResponse | ErrorResponse:
         url = matrix_api.login(self.hs_url)
         LOGGER.info(f"CLIENT login {url}")
+        LOGGER.debug(f"device_id pre login: {self.bot_infos.device_id}")
         body = LoginBody(
+            device_id=self.bot_infos.device_id,
             type=LoginType.application_service,
             identifier=UserIdentifierUser(user=user_id_or_localpart),
         )
@@ -161,8 +156,8 @@ class Client:
         if response.status == 200:
             data = LoginResponse(**data)
             LOGGER.debug(data)
-            self.device_id = data.device_id
-            self.access_token = data.access_token
+            self.bot_infos.device_id = data.device_id
+            self.bot_infos.access_token = data.access_token
             return data
         data = ErrorResponse(**data)
         LOGGER.debug(data)

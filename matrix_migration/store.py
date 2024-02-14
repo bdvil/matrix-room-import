@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
-from collections.abc import Generator
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
+
+from psycopg import AsyncConnection
+
+from matrix_migration import LOGGER
 
 T = TypeVar("T")
 
@@ -30,20 +33,51 @@ class RAMStore(Store, Generic[T]):
         return self._storage[value]
 
 
-class BotStorage(ABC):
-    @abstractmethod
-    def update(self, vals: dict[str, Any]): ...
+class BotInfos:
+    async def __init__(self, conninfo: str):
+        self.conninfo = conninfo
 
-    @abstractmethod
-    def __getitem__(self, key: str) -> Any: ...
+        self._device_id: str | None = None
+        self._access_token: str | None = None
 
-    @abstractmethod
-    def items(self) -> Generator[dict[str, Any], None, None]: ...
+        await self._get_fields()
 
+    async def _get_fields(self):
+        async with await AsyncConnection.connect(self.conninfo) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT key, value FROM bot_infos")
+                async for record in cur:
+                    match record[0]:
+                        case "device_id":
+                            LOGGER.debug(f"device_id {record[1]}")
+                            self._device_id = record[1]
+                        case "access_token":
+                            LOGGER.debug(f"access_token {record[1]}")
+                            self._access_token = record[1]
 
-class RAMBotStorage(ABC):
-    def __init__(self):
-        self.storage: dict[str, Any] = {}
+    async def _set_key(self, key: str, value: str):
+        async with await AsyncConnection.connect(self.conninfo) as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO bot_infos (key, value) SET (%s, %s)",
+                    (key, value),
+                )
+                await conn.commit()
 
-    def update(self, vals: dict[str, Any]):
-        self.storage.update(vals)
+    @property
+    def device_id(self):
+        return self._device_id
+
+    @property
+    def access_token(self):
+        return self._access_token
+
+    @device_id.setter
+    async def device_id(self, device_id: str):
+        await self._set_key("device_id", device_id)
+        self._device_id = device_id
+
+    @access_token.setter
+    async def access_token(self, access_token: str):
+        await self._set_key("access_token", access_token)
+        self._access_token = access_token

@@ -65,7 +65,9 @@ def serve():
     app = Application()
     app[config_key] = config
     app[txn_store_key] = RAMStore()
-    client = Client(config.homeserver_from.url, config.as_token, config.as_id)
+    client = Client(
+        config.homeserver_from.url, config.as_token, config.as_id, config.database_url
+    )
     app[client_key] = client
     app.add_routes(
         [
@@ -90,7 +92,7 @@ def serve():
         runner.run(
             client.update_bot_profile(config.bot_username, config.bot_displayname)
         )
-        # runner.run(client.login(config.bot_username))
-        # if client.access_token is None:
-        #     LOGGER.error("Could not login.")
+        runner.run(client.login(config.bot_username))
+        if client.access_token is None:
+            LOGGER.error("Could not login.")
         runner.run(main(app, config.port))
