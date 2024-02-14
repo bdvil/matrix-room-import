@@ -18,22 +18,20 @@ async def check_done_migrations(conninfo: str) -> list[str]:
             await cur.execute(
                 """
 SELECT EXISTS (
-    SELECT 1
-    FROM information_schema.tables
+    SELECT FROM information_schema.tables
     WHERE table_name = 'migrations'
-) AS table_existance
+)
 """
             )
-            await cur.fetchone()
-            async for record in cur:
-                LOGGER.debug(record)
-                if record[0] is False:
-                    return []
+            record = await cur.fetchone()
+            LOGGER.debug(record)
+            if record is None or record is False:
+                return []
 
             await cur.execute("SELECT name FROM migrations")
-            await cur.fetchall()
             names: list[str] = []
             async for record in cur:
+                LOGGER.debug(record)
                 names.append(record[0])
             return names
 
