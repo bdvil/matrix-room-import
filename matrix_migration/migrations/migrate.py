@@ -3,6 +3,8 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
+from matrix_migration import LOGGER
+
 from .create_tables import create_tables_migration
 
 migration_order: list[tuple[str, Callable[[str], Coroutine[Any, Any, None]]]] = [
@@ -46,9 +48,11 @@ async def update_migration_table(conninfo: str, migration_name: str):
 
 async def execute_migration(conninfo: str):
     done_migrations = await check_done_migrations(conninfo)
+    LOGGER.debug(f"Done migrations: {done_migrations}")
     for migration_name, migration in migration_order:
         if migration_name in done_migrations:
             continue
 
+        LOGGER.info(f"Executing migration {migration_name}")
         await migration(conninfo)
         await update_migration_table(conninfo, migration_name)
