@@ -24,14 +24,12 @@ SELECT EXISTS (
 """
             )
             record = await cur.fetchone()
-            LOGGER.debug(record)
             if record is None or record[0] is False:
                 return []
 
             await cur.execute("SELECT name FROM migrations")
             names: list[str] = []
             async for record in cur:
-                LOGGER.debug(record)
                 names.append(record[0])
             return names
 
