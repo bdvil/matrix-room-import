@@ -3,8 +3,6 @@ from typing import Generic, TypeVar
 
 from psycopg import AsyncConnection
 
-from matrix_migration import LOGGER
-
 T = TypeVar("T")
 
 
