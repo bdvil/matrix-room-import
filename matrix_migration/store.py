@@ -34,13 +34,13 @@ class RAMStore(Store, Generic[T]):
 
 
 class BotInfos:
-    async def __init__(self, conninfo: str):
+    def __init__(self, conninfo: str):
         self.conninfo = conninfo
 
         self._device_id: str | None = None
         self._access_token: str | None = None
 
-        await self._get_fields()
+        self._synced = False
 
     async def _get_fields(self):
         async with await AsyncConnection.connect(self.conninfo) as conn:
@@ -65,19 +65,21 @@ class BotInfos:
                 await conn.commit()
 
     @property
-    def device_id(self):
+    async def device_id(self):
+        if not self._synced:
+            await self._get_fields()
         return self._device_id
 
     @property
-    def access_token(self):
+    async def access_token(self):
+        if not self._synced:
+            await self._get_fields()
         return self._access_token
 
-    @device_id.setter
-    async def device_id(self, device_id: str):
+    async def set_device_id(self, device_id: str):
         await self._set_key("device_id", device_id)
         self._device_id = device_id
 
-    @access_token.setter
-    async def access_token(self, access_token: str):
+    async def set_access_token(self, access_token: str):
         await self._set_key("access_token", access_token)
         self._access_token = access_token

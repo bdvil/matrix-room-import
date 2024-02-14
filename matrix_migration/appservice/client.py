@@ -146,7 +146,7 @@ class Client:
         LOGGER.info(f"CLIENT login {url}")
         LOGGER.debug(f"device_id pre login: {self.bot_infos.device_id}")
         body = LoginBody(
-            device_id=self.bot_infos.device_id,
+            device_id=await self.bot_infos.device_id,
             type=LoginType.application_service,
             identifier=UserIdentifierUser(user=user_id_or_localpart),
         )
@@ -156,8 +156,8 @@ class Client:
         if response.status == 200:
             data = LoginResponse(**data)
             LOGGER.debug(data)
-            self.bot_infos.device_id = data.device_id
-            self.bot_infos.access_token = data.access_token
+            await self.bot_infos.set_device_id(data.device_id)
+            await self.bot_infos.set_access_token(data.access_token)
             return data
         data = ErrorResponse(**data)
         LOGGER.debug(data)
