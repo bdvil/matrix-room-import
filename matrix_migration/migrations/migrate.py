@@ -25,7 +25,7 @@ SELECT EXISTS (
             )
             record = await cur.fetchone()
             LOGGER.debug(record)
-            if record is None or record is False:
+            if record is None or record[0] is False:
                 return []
 
             await cur.execute("SELECT name FROM migrations")
