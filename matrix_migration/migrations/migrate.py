@@ -26,6 +26,7 @@ SELECT EXISTS (
             )
             await cur.fetchone()
             async for record in cur:
+                LOGGER.debug(record)
                 if record[0] is False:
                     return []
 
