@@ -21,7 +21,7 @@ SELECT EXISTS (
     SELECT 1
     FROM information_schema.tables
     WHERE table_name = 'migrations'
-)
+) AS table_existance
 """
             )
             await cur.fetchone()
