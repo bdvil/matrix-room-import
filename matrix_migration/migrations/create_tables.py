@@ -16,7 +16,7 @@ CREATE TABLE migrations (
                 """
 CREATE TABLE bot_infos (
     id serial PRIMARY KEY,
-    key varchar(255)
+    key varchar(255),
     value varchar(255)
 )
 """
