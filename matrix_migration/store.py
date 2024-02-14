@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Generic, TypeVar
+from collections.abc import Generator
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -27,3 +28,22 @@ class RAMStore(Store, Generic[T]):
 
     def __getitem__(self, value: int) -> T:
         return self._storage[value]
+
+
+class BotStorage(ABC):
+    @abstractmethod
+    def update(self, vals: dict[str, Any]): ...
+
+    @abstractmethod
+    def __getitem__(self, key: str) -> Any: ...
+
+    @abstractmethod
+    def items(self) -> Generator[dict[str, Any], None, None]: ...
+
+
+class RAMBotStorage(ABC):
+    def __init__(self):
+        self.storage: dict[str, Any] = {}
+
+    def update(self, vals: dict[str, Any]):
+        self.storage.update(vals)

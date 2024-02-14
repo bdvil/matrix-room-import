@@ -27,6 +27,8 @@ class Config(BaseModel):
     filter_room_with: list[str]
     port: int
 
+    database_url: str
+
 
 def load_config() -> Config:
     default_config_path = PROJECT_DIR / "example-config.yaml"

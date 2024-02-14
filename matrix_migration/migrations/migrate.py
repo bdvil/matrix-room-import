@@ -1,0 +1,54 @@
+from collections.abc import Callable, Coroutine
+from typing import Any
+
+from psycopg import AsyncConnection
+
+from .create_tables import create_tables_migration
+
+migration_order: list[tuple[str, Callable[[str], Coroutine[Any, Any, None]]]] = [
+    ("0_create_tables", create_tables_migration),
+]
+
+
+async def check_done_migrations(conninfo: str) -> list[str]:
+    async with await AsyncConnection.connect(conninfo) as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                """
+SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_name = 'migrations'
+)
+"""
+            )
+            await cur.fetchone()
+            async for record in cur:
+                if record[0] is False:
+                    return []
+
+            await cur.execute("SELECT name FROM migrations")
+            await cur.fetchall()
+            names: list[str] = []
+            async for record in cur:
+                names.append(record[0])
+            return names
+
+
+async def update_migration_table(conninfo: str, migration_name: str):
+    async with await AsyncConnection.connect(conninfo) as conn:
+        async with conn.cursor() as cur:
+            await cur.execute(
+                "INSERT INTO migrations (name) VALUES (%s)", (migration_name,)
+            )
+            await conn.commit()
+
+
+async def execute_migration(conninfo: str):
+    done_migrations = await check_done_migrations(conninfo)
+    for migration_name, migration in migration_order:
+        if migration_name in done_migrations:
+            continue
+
+        await migration(conninfo)
+        await update_migration_table(conninfo, migration_name)

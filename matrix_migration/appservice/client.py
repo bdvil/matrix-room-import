@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -41,6 +42,12 @@ class HTTPMethod(str, Enum):
     delete = "DELETE"
 
 
+@dataclass
+class ClientState:
+    device: str | None = None
+    access_token: str | None = None
+
+
 class Client:
     def __init__(self, hs_url: str, as_token: str, as_id: str):
         self.hs_url = hs_url
@@ -50,6 +57,7 @@ class Client:
             "Authorization": f"Bearer {as_token}",
         }
 
+        self.state = ClientState()
         self.device_id: str | None = None
         self.access_token: str | None = None
 

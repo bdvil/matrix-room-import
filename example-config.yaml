@@ -14,6 +14,9 @@ as_localpart: Appservice localpart
 bot_username: "@mamibot:example.com"
 bot_displayname: MaMi Bot
 
+# A Postgresql connection string (https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING)
+database_url: postgresql://user:secret@localhost/db_name
+
 # Rooms with these user id will not be migrated (e.g. rooms from bridges)
 filter_room_with: []
 port: 8181

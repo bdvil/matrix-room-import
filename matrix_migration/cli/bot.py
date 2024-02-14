@@ -1,14 +1,15 @@
-from asyncio import run
+import asyncio
 
 import click
 from aiohttp import web
-from aiohttp.web import Application, Request, Response, run_app
+from aiohttp.web import Application, Request, Response
 
 import matrix_migration.appservice.server as server
 from matrix_migration import LOGGER
 from matrix_migration.appkeys import client_key, config_key, txn_store_key
 from matrix_migration.appservice.client import Client
 from matrix_migration.config import load_config
+from matrix_migration.migrations.migrate import execute_migration
 from matrix_migration.store import RAMStore
 
 
@@ -49,6 +50,14 @@ async def handle_test(request: Request) -> Response:
     return web.json_response({}, status=200)
 
 
+async def main(app: Application, port: int):
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, port=port)
+    await site.start()
+    await asyncio.Event().wait()
+
+
 @click.command("serve")
 def serve():
     config = load_config()
@@ -76,8 +85,12 @@ def serve():
             web.get("/_matrix/app/v1/thirdparty/user/{protocol}", handle),
         ]
     )
-    run(client.update_bot_profile(config.bot_username, config.bot_displayname))
-    # run(client.login(config.bot_username))
-    # if client.access_token is None:
-    #     LOGGER.error("Could not login.")
-    run_app(app, port=config.port)
+    with asyncio.Runner() as runner:
+        runner.run(execute_migration(config.database_url))
+        runner.run(
+            client.update_bot_profile(config.bot_username, config.bot_displayname)
+        )
+        # runner.run(client.login(config.bot_username))
+        # if client.access_token is None:
+        #     LOGGER.error("Could not login.")
+        runner.run(main(app, config.port))
