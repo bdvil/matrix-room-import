@@ -93,6 +93,6 @@ def serve():
             client.update_bot_profile(config.bot_username, config.bot_displayname)
         )
         runner.run(client.login(config.bot_username))
-        if client.access_token is None:
+        if client.bot_infos.access_token is None:
             LOGGER.error("Could not login.")
         runner.run(main(app, config.port))
