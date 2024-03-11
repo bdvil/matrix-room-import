@@ -4,13 +4,13 @@ import click
 from aiohttp import web
 from aiohttp.web import Application, Request, Response
 
-import matrix_migration.appservice.server as server
-from matrix_migration import LOGGER
-from matrix_migration.appkeys import client_key, config_key, txn_store_key
-from matrix_migration.appservice.client import Client
-from matrix_migration.config import load_config
-from matrix_migration.migrations.migrate import execute_migration
-from matrix_migration.store import RAMStore
+import matrix_room_import.appservice.server as server
+from matrix_room_import import LOGGER
+from matrix_room_import.appkeys import client_key, config_key, txn_store_key
+from matrix_room_import.appservice.client import Client
+from matrix_room_import.config import load_config
+from matrix_room_import.migrations.migrate import execute_migration
+from matrix_room_import.store import RAMStore
 
 
 async def handle(request: Request) -> Response:

@@ -2,11 +2,11 @@ from collections.abc import Sequence
 
 from aiohttp import web
 
-import matrix_migration.appservice.types as types
-from matrix_migration import LOGGER
-from matrix_migration.appkeys import client_key, config_key, txn_store_key
-from matrix_migration.appservice.client import Client
-from matrix_migration.appservice.types import (
+import matrix_room_import.appservice.types as types
+from matrix_room_import import LOGGER
+from matrix_room_import.appkeys import client_key, config_key, txn_store_key
+from matrix_room_import.appservice.client import Client
+from matrix_room_import.appservice.types import (
     ClientEvent,
     Event,
     MembershipEnum,
@@ -14,7 +14,7 @@ from matrix_migration.appservice.types import (
     RoomMessage,
     ToDeviceEvent,
 )
-from matrix_migration.config import Config
+from matrix_room_import.config import Config
 
 
 def check_headers(request: web.Request, hs_token: str) -> bool:

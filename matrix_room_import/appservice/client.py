@@ -6,8 +6,8 @@ from uuid import uuid4
 
 from aiohttp import ClientResponse, ClientSession
 
-from matrix_migration import LOGGER, matrix_api
-from matrix_migration.appservice.types import (
+from matrix_room_import import LOGGER, matrix_api
+from matrix_room_import.appservice.types import (
     ErrorResponse,
     JoinRoomBody,
     JoinRoomResponse,
@@ -29,7 +29,7 @@ from matrix_migration.appservice.types import (
     UserIdentifierUser,
     WhoAmIResponse,
 )
-from matrix_migration.store import BotInfos
+from matrix_room_import.store import BotInfos
 
 
 def new_txn() -> str:

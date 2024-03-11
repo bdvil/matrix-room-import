@@ -3,7 +3,7 @@ import shutil
 import yaml
 from pydantic import BaseModel
 
-from matrix_migration import PROJECT_DIR
+from matrix_room_import import PROJECT_DIR
 
 
 class HomeServer(BaseModel):

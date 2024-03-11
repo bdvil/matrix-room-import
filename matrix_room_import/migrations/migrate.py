@@ -3,7 +3,7 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
-from matrix_migration import LOGGER
+from matrix_room_import import LOGGER
 
 from .create_tables import create_tables_migration
 

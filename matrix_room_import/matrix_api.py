@@ -1,7 +1,7 @@
 from typing import Any
 from urllib import parse
 
-from matrix_migration.appservice.types import PresenceEnum
+from matrix_room_import.appservice.types import PresenceEnum
 
 
 def urlencode(data: dict[str, Any]) -> str:
