@@ -89,12 +89,29 @@ class ImageInfo(BaseModel):
     thumbnail_url: str | None = None
 
 
+class Mentions(BaseModel):
+    user_ids: Sequence[str] | None = None
+
+
+class InReplyTo(BaseModel):
+    event_id: str
+
+
+class RelatesTo(BaseModel):
+    in_reply_to: InReplyTo = Field(alias="m.in_reply_to")
+
+
 class RoomMessage(BaseModel):
     msgtype: MsgType
     body: str
 
     format: str | None = None
     formatted_body: str | None = None
+
+    mentions: Mentions | None = Field(serialization_alias="m.mentions", default=None)
+    relates_to: RelatesTo | None = Field(
+        serialization_alias="m.relates_to", default=None
+    )
 
     file: str | None = None
     filename: str | None = None
@@ -203,6 +220,68 @@ class ClientEvents(BaseModel):
     to_device: Sequence[ToDeviceEvent] | None = Field(
         alias="de.sorunome.msc2409.to_device", default=None
     )
+
+
+class PreviousRoom(BaseModel):
+    event_id: str
+    room_id: str
+
+
+class CreationContent(BaseModel):
+    creator: str | None = None
+    federate: bool | None = Field(serialization_alias="m.federate", default=None)
+    predecessor: PreviousRoom | None = None
+    room_version: str | None = None
+    type: str | None = None
+
+
+class StateEvent(BaseModel):
+    content: Any
+    state_key: str | None = None
+    type: str
+
+
+class Invite3pid(BaseModel):
+    address: str
+    id_access_token: str
+    id_server: str
+    medium: str
+
+
+class PowerLevelContent(BaseModel):
+    ban: int | None = None
+    events: Mapping[str, int] | None = None
+    events_default: int | None = None
+    invite: int | None = None
+    kick: int | None = None
+    notifications: Mapping[str, int] | None = None
+    redact: int | None = None
+    state_default: int | None = None
+    users: Mapping[str, int] | None = None
+    users_default: int | None = None
+
+
+class CreateRoomBody(BaseModel):
+    creation_content: CreationContent | None = None
+    initial_state: list[StateEvent] | None = None
+    invite: list[str] | None = None
+    invite_3pid: list[Invite3pid] | None = None
+    is_direct: bool | None = None
+    name: str | None = None
+    power_level_content_override: PowerLevelContent | None = None
+    preset: Literal["private_chat", "public_chat", "trusted_private_chat"] | None = None
+    room_alias_name: str | None = None
+    room_version: str | None = None
+    topic: str | None = None
+    visibility: Literal["public", "private"] | None = None
+
+
+class CreateRoomResponse(BaseModel):
+    room_id: str
+
+
+class DeleteRoomResponse(BaseModel):
+    delete_id: str
 
 
 class JoinRoomBody(BaseModel):

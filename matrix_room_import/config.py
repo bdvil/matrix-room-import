@@ -1,33 +1,27 @@
 import shutil
+from collections.abc import Sequence
+from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from matrix_room_import import PROJECT_DIR
 
 
-class HomeServer(BaseModel):
-    url: str
-    server_name: str
-
-
 class Config(BaseModel):
-    homeserver_from: HomeServer
-    homeserver_to: HomeServer
+    homeserver_url: str
+    server_name: str
 
     hs_token: str
     as_token: str
     as_id: str
     as_localpart: str
 
-    bot_username: str
-    bot_displayname: str
+    path_to_import_files: Path
 
-    # Rooms with these user id will not be migrated (e.g. rooms from bridges)
-    filter_room_with: list[str]
     port: int
 
-    database_url: str
+    delete_rooms: Sequence[str] = Field(default=[])
 
 
 def load_config() -> Config:

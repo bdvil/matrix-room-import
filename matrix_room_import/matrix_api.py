@@ -37,10 +37,35 @@ def room_join(hs_url: str, room_id: str) -> str:
     return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/join"
 
 
-def room_send_event(hs_url: str, room_id: str, event_type: str, txn_id: str) -> str:
+def create_room(hs_url: str, user_id: str) -> str:
+    query_data = {"user_id": user_id}
+    query = urlencode(query_data)
+    return sanitize_url(hs_url) + f"/_matrix/client/v3/createRoom?{query}"
+
+
+def delete_room(hs_url: str, room_id: str) -> str:
+    return sanitize_url(hs_url) + f"/_synapse/admin/v2/rooms/{room_id}"
+
+
+def room_send_event(
+    hs_url: str, room_id: str, event_type: str, txn_id: str, user_id: str
+) -> str:
+    query_data = {"user_id": user_id}
+    query = urlencode(query_data)
     return (
         sanitize_url(hs_url)
-        + f"/_matrix/client/v3/rooms/{room_id}/send/{event_type}/{txn_id}"
+        + f"/_matrix/client/v3/rooms/{room_id}/send/{event_type}/{txn_id}?{query}"
+    )
+
+
+def room_send_state_event(
+    hs_url: str, room_id: str, event_type: str, state_key: str, user_id: str
+) -> str:
+    query_data = {"user_id": user_id}
+    query = urlencode(query_data)
+    return (
+        sanitize_url(hs_url)
+        + f"/_matrix/client/v3/rooms/{room_id}/state/{event_type}/{state_key}?{query}"
     )
 
 

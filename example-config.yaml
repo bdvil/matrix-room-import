@@ -1,22 +1,10 @@
-homeserver_from:
-    url: matrix.example.com
-    server_name: example.com
-homeserver_to:
-    url: matrix.new-example.com
-    server_name: new-example.com
-
+homeserver_url: matrix.example.com
+server_name: example.com
 
 hs_token: Homeserver token
 as_token: Appservice token
 as_id: Appservice id
 as_localpart: Appservice localpart
 
-bot_username: "@mamibot:example.com"
-bot_displayname: MaMi Bot
-
-# A Postgresql connection string (https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-CONNSTRING)
-database_url: postgresql://user:secret@localhost/db_name
-
-# Rooms with these user id will not be migrated (e.g. rooms from bridges)
-filter_room_with: []
+path_to_import_files: "./path/to/folder"
 port: 8181
