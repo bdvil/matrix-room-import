@@ -268,6 +268,9 @@ async def http_server_task_runner(
     app[client_key] = client
     app[events_key] = events
 
+    bot_userid = f"@{config.as_id}:{config.server_name}"
+    await client.update_bot_profile(bot_userid, config.bot_displayname)
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, port=config.port)
@@ -320,15 +323,15 @@ async def main():
 
     concurreny_events = ConcurrencyEvents()
 
-    # server_task = asyncio.create_task(
-    #     http_server_task_runner(config, client, concurreny_events)
-    # )
-    import_task = asyncio.create_task(
-        import_task_runner(client, config, concurreny_events)
+    server_task = asyncio.create_task(
+        http_server_task_runner(config, client, concurreny_events)
     )
+    # import_task = asyncio.create_task(
+    #     import_task_runner(client, config, concurreny_events)
+    # )
 
-    # await server_task
-    await import_task
+    await server_task
+    # await import_task
 
 
 @click.command("serve")

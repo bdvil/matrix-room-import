@@ -6,5 +6,7 @@ as_token: Appservice token
 as_id: Appservice id
 as_localpart: Appservice localpart
 
+bot_displayname: Matrix Import Bot
+
 path_to_import_files: "./path/to/folder"
 port: 8181

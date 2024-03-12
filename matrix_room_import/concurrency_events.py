@@ -1,7 +1,6 @@
-from asyncio import Event
+from asyncio import Semaphore
 
 
 class ConcurrencyEvents:
     def __init__(self):
-        self.should_accept_invite = Event()
-        self.has_accepted_invite = Event()
+        self.num_export_process_sem = Semaphore(0)

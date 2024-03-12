@@ -1,5 +1,6 @@
 from collections.abc import Mapping, Sequence
 from enum import Enum
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -18,6 +19,8 @@ from matrix_room_import.appservice.types import (
     JoinRoomResponse,
     PingBody,
     PingResponse,
+    ProfileDisplayNameBody,
+    ProfileDisplayNameResponse,
     ProfileResponse,
     RoomMessage,
     RoomSendEventResponse,
@@ -51,14 +54,14 @@ class Client:
 
         self.should_accept_memberships: list[tuple[str, str]] = []
 
-    async def request(
+    async def raw_request(
         self,
         url: str,
         method: HTTPMethod,
         body: Any = None,
         headers: Mapping[str, str] | None = None,
         data: bytes | None = None,
-    ) -> tuple[ClientResponse, Any]:
+    ) -> ClientResponse:
         if body is None:
             body = {}
         if headers is None:
@@ -69,8 +72,19 @@ class Client:
             async with session.request(
                 method.value, url, data=data, json=body
             ) as response:
-                data = await response.json()
-                return response, data
+                return response
+
+    async def request(
+        self,
+        url: str,
+        method: HTTPMethod,
+        body: Any = None,
+        headers: Mapping[str, str] | None = None,
+        data: bytes | None = None,
+    ) -> tuple[ClientResponse, Any]:
+        response = await self.raw_request(url, method, body, headers, data)
+        data = await response.json()
+        return response, data
 
     async def ping(
         self,
@@ -115,6 +129,29 @@ class Client:
         if response.status == 200:
             return ProfileResponse(**data)
         return ErrorResponse(**data, statuscode=response.status)
+
+    async def set_displayname(
+        self, user_id: str, displayname: str
+    ) -> ProfileDisplayNameResponse | ErrorResponse:
+        url = matrix_api.profile_displayname(self.hs_url, user_id)
+        LOGGER.info("CLIENT set displayname")
+        body = ProfileDisplayNameBody(displayname=displayname)
+        response, data = await self.request(url, HTTPMethod.put, body.model_dump())
+        if response.status == 200:
+            return ProfileDisplayNameResponse(**data)
+        return ErrorResponse(**data, statuscode=response.status)
+
+    async def update_bot_profile(
+        self, user_id: str, displayname: str
+    ) -> ProfileResponse | ErrorResponse:
+        profile = await self.profile(user_id)
+        if isinstance(profile, ErrorResponse) and profile.statuscode == 404:
+            await self.set_displayname(user_id, displayname)
+        elif isinstance(profile, ProfileResponse):
+            if profile.displayname != displayname:
+                await self.set_displayname(user_id, displayname)
+            return await self.profile(user_id)
+        return profile
 
     async def invite(
         self,
@@ -305,3 +342,30 @@ class Client:
             if isinstance(upload_resp, ErrorResponse):
                 return upload_resp
         return resp
+
+    async def download_media(
+        self,
+        download_path: Path,
+        media_url: str,
+        allow_redirect: bool = False,
+        allow_remote: bool = False,
+        timeout_ms: int | None = None,
+    ) -> bool | ErrorResponse:
+        server_name, _, media_id = media_url[6:].partition("/")
+        url = matrix_api.download_media(
+            self.hs_url, server_name, media_id, allow_redirect, allow_remote, timeout_ms
+        )
+        LOGGER.info("CLIENT download media")
+        response = await self.raw_request(url, HTTPMethod.get)
+
+        if response.status == 200:
+            data = await response.read()
+            with open(download_path, "wb") as f:
+                f.write(data)
+            return True
+        data = ErrorResponse(**await response.json(), statuscode=response.status)
+        LOGGER.debug(
+            "CLIENT download error data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        return data

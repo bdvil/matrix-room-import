@@ -17,6 +17,8 @@ class Config(BaseModel):
     as_id: str
     as_localpart: str
 
+    bot_displayname: str
+
     path_to_import_files: Path
 
     port: int

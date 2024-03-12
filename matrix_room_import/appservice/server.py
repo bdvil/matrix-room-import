@@ -3,17 +3,21 @@ from collections.abc import Sequence
 from aiohttp import web
 
 import matrix_room_import.appservice.types as types
-from matrix_room_import import LOGGER
+from matrix_room_import import LOGGER, PROJECT_DIR
 from matrix_room_import.appkeys import client_key, config_key, events_key
 from matrix_room_import.appservice.client import Client
 from matrix_room_import.appservice.types import (
     ClientEvent,
+    JoinRoomBody,
+    JoinRoomResponse,
     MembershipEnum,
+    MsgType,
     RoomMember,
+    RoomMessage,
 )
 from matrix_room_import.concurrency_events import ConcurrencyEvents
 from matrix_room_import.config import Config
-from matrix_room_import.stores import txn_store
+from matrix_room_import.stores import process_queue, room_stores, txn_store
 
 
 def check_headers(request: web.Request, hs_token: str) -> bool:
@@ -49,7 +53,10 @@ async def handle_events(
         match event.type:
             case "m.room.member":
                 content = RoomMember(**event.content)
-                await handle_room_member(client, event, content, concurrency_events)
+                await handle_room_member(config, client, event, content)
+            case "m.room.message" if event.room_id in room_stores:
+                content = RoomMessage(**event.content)
+                await handle_room_message(config, client, event, content)
 
 
 async def handle_transaction(request: web.Request) -> web.Response:
@@ -75,25 +82,65 @@ async def handle_transaction(request: web.Request) -> web.Response:
 
 
 async def handle_room_member(
+    config: Config,
     client: Client,
     event: types.ClientEvent,
     content: RoomMember,
-    concurrency_events: ConcurrencyEvents,
 ):
-    return
-    print("== Received room member event ==")
-    if content.membership == MembershipEnum.invite:
-        removed_id = None
-        for k, (user_id, room_id) in enumerate(client.should_accept_memberships):
-            if user_id == event.state_key and room_id == event.room_id:
-                print("== Waiting for shoud invite event ==")
-                await concurrency_events.should_accept_invite.wait()
-                print("== Should invite now ==")
-                resp = await client.join_room(event.room_id)
-                LOGGER.debug(resp)
-                removed_id = k
-                concurrency_events.should_accept_invite.clear()
-                break
-        if removed_id is not None:
-            client.should_accept_memberships.pop(removed_id)
-            concurrency_events.has_accepted_invite.set()
+    bot_userid = f"@{config.as_id}:{config.server_name}"
+    print("member event")
+    print(event)
+    if content.membership == MembershipEnum.invite and event.state_key == bot_userid:
+        resp = await client.join_room(event.room_id, JoinRoomBody())
+        if isinstance(resp, JoinRoomResponse):
+            room_stores.append(resp.room_id)
+            await client.send_event(
+                "m.room.message",
+                resp.room_id,
+                RoomMessage(
+                    msgtype=MsgType.text,
+                    body="""Hello! Send me chat export files and I will import them back for you!
+
+On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
+Select the JSON format, "From the beginning" in Messages, a high size limit, and check
+the "Include Attachments" box.
+""",
+                ),
+                user_id=bot_userid,
+            )
+
+        LOGGER.debug(resp)
+
+
+async def handle_room_message(
+    config: Config,
+    client: Client,
+    event: types.ClientEvent,
+    content: RoomMessage,
+    concurrency: ConcurrencyEvents,
+):
+    bot_userid = f"@{config.as_id}:{config.server_name}"
+    if event.sender == bot_userid:
+        return
+    if content.msgtype == MsgType.file and content.url is not None:
+        print("Received message")
+        print(event)
+        download_path = PROJECT_DIR / "data" / content.body
+
+        resp = await client.download_media(
+            download_path, content.url, allow_redirect=False
+        )
+        if isinstance(resp, bool) and resp:
+            process_queue.append(download_path)
+            concurrency.num_export_process_sem.release()
+
+        # resp = await client.send_event(
+        #     "m.room.message",
+        #     event.room_id,
+        #     RoomMessage(
+        #         msgtype=MsgType.text,
+        #         body="",
+        #     ),
+        #     user_id=bot_userid,
+        # )
+        # print(resp)

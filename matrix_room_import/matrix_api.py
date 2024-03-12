@@ -124,3 +124,25 @@ def upload_media(
         sanitize_url(hs_url)
         + f"/_matrix/media/v3/upload/{server_name}/{media_id}?{query}"
     )
+
+
+def download_media(
+    hs_url: str,
+    server_name: str,
+    media_id: str,
+    allow_redirect: bool = False,
+    allow_remote: bool = False,
+    timeout_ms: int | None = None,
+) -> str:
+    query_data: dict[str, str] = {}
+    if allow_redirect:
+        query_data["allow_redirect"] = str(int(allow_redirect))
+    if allow_remote:
+        query_data["allow_remote"] = str(int(allow_remote))
+    if timeout_ms is not None:
+        query_data["timeout_ms"] = str(timeout_ms)
+    query = urlencode(query_data)
+    return (
+        sanitize_url(hs_url)
+        + f"/_matrix/media/v3/upload/{server_name}/{media_id}?{query}"
+    )
