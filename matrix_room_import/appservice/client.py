@@ -118,9 +118,9 @@ class Client:
         return ErrorResponse(**data, statuscode=response.status)
 
     async def create_room(
-        self, body: CreateRoomBody, user_id: str
+        self, body: CreateRoomBody, user_id: str | None = None, ts: int | None = None
     ) -> CreateRoomResponse | ErrorResponse:
-        url = matrix_api.create_room(self.hs_url, user_id)
+        url = matrix_api.create_room(self.hs_url, user_id, ts)
         LOGGER.info("CLIENT create_room")
         response, data = await self.request(
             url, HTTPMethod.post, body.model_dump(exclude_defaults=True)
@@ -153,15 +153,16 @@ class Client:
 
     async def send_event(
         self,
-        user_id: str,
         event_type: str,
         room_id: str,
         room_message: RoomMessage,
         txn_id: str | None = None,
+        user_id: str | None = None,
+        ts: int | None = None,
     ) -> RoomSendEventResponse | ErrorResponse:
         txn_id = txn_id or new_txn()
         url = matrix_api.room_send_event(
-            self.hs_url, room_id, event_type, txn_id, user_id
+            self.hs_url, room_id, event_type, txn_id, user_id, ts
         )
         LOGGER.info("CLIENT send_event")
         response, data = await self.request(
@@ -184,14 +185,15 @@ class Client:
 
     async def send_state_event(
         self,
-        user_id: str,
         event_type: str,
         room_id: str,
         room_message: Any,
         state_key: str = "",
+        user_id: str | None = None,
+        ts: int | None = None,
     ) -> RoomSendEventResponse | ErrorResponse:
         url = matrix_api.room_send_state_event(
-            self.hs_url, room_id, event_type, state_key, user_id
+            self.hs_url, room_id, event_type, state_key, user_id, ts
         )
         LOGGER.info("CLIENT send_state_event")
         self.should_accept_memberships.append((state_key, room_id))

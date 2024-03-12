@@ -1,8 +1,6 @@
 from typing import Any
 from urllib import parse
 
-from matrix_room_import.appservice.types import PresenceEnum
-
 
 def urlencode(data: dict[str, Any]) -> str:
     return parse.urlencode(
@@ -33,12 +31,23 @@ def profile_displayname(hs_url: str, user_id: str) -> str:
     return sanitize_url(hs_url) + f"/_matrix/client/v3/profile/{user_id}/displayname"
 
 
-def room_join(hs_url: str, room_id: str) -> str:
+def room_join(
+    hs_url: str, room_id: str, user_id: str | None = None, ts: int | None = None
+) -> str:
+    query_data: dict[str, str] = {}
+    if user_id is not None:
+        query_data["user_id"] = user_id
+    if ts is not None:
+        query_data["ts"] = str(ts)
     return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/join"
 
 
-def create_room(hs_url: str, user_id: str) -> str:
-    query_data = {"user_id": user_id}
+def create_room(hs_url: str, user_id: str | None = None, ts: int | None = None) -> str:
+    query_data: dict[str, str] = {}
+    if user_id is not None:
+        query_data["user_id"] = user_id
+    if ts is not None:
+        query_data["ts"] = str(ts)
     query = urlencode(query_data)
     return sanitize_url(hs_url) + f"/_matrix/client/v3/createRoom?{query}"
 
@@ -48,9 +57,18 @@ def delete_room(hs_url: str, room_id: str) -> str:
 
 
 def room_send_event(
-    hs_url: str, room_id: str, event_type: str, txn_id: str, user_id: str
+    hs_url: str,
+    room_id: str,
+    event_type: str,
+    txn_id: str,
+    user_id: str | None = None,
+    ts: int | None = None,
 ) -> str:
-    query_data = {"user_id": user_id}
+    query_data: dict[str, str] = {}
+    if user_id is not None:
+        query_data["user_id"] = user_id
+    if ts is not None:
+        query_data["ts"] = str(ts)
     query = urlencode(query_data)
     return (
         sanitize_url(hs_url)
@@ -59,41 +77,20 @@ def room_send_event(
 
 
 def room_send_state_event(
-    hs_url: str, room_id: str, event_type: str, state_key: str, user_id: str
+    hs_url: str,
+    room_id: str,
+    event_type: str,
+    state_key: str,
+    user_id: str | None = None,
+    ts: int | None = None,
 ) -> str:
-    query_data = {"user_id": user_id}
+    query_data: dict[str, str] = {}
+    if user_id is not None:
+        query_data["user_id"] = user_id
+    if ts is not None:
+        query_data["ts"] = str(ts)
     query = urlencode(query_data)
     return (
         sanitize_url(hs_url)
         + f"/_matrix/client/v3/rooms/{room_id}/state/{event_type}/{state_key}?{query}"
     )
-
-
-def query_key(hs_url: str) -> str:
-    return sanitize_url(hs_url) + "/_matrix/client/v3/keys/query"
-
-
-def login(hs_url: str) -> str:
-    return sanitize_url(hs_url) + "/_matrix/client/v3/login"
-
-
-def sync(
-    hs_url: str,
-    filter: str | None,
-    full_state: bool = False,
-    set_presence: PresenceEnum | None = None,
-    since: str | None = None,
-    timeout: int = 0,
-    user_id: str | None = None,
-) -> str:
-    query_data = {"full_state": full_state, "timeout": timeout}
-    if filter is not None:
-        query_data["filter"] = filter
-    if set_presence is not None:
-        query_data["set_presence"] = set_presence.value
-    if since is not None:
-        query_data["since"] = since
-    if user_id is not None:
-        query_data["user_id"] = user_id
-    query = urlencode(query_data)
-    return sanitize_url(hs_url) + f"/_matrix/client/v3/sync?{query}"

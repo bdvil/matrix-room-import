@@ -15,6 +15,7 @@ from matrix_room_import.appservice.types import (
     CreateRoomBody,
     CreateRoomResponse,
     CreationContent,
+    ErrorResponse,
     RoomMessage,
     StateEvent,
 )
@@ -43,28 +44,6 @@ def get_join_rule(data: ExportFile) -> str:
     return "invite"
 
 
-def get_topic(data: ExportFile) -> str | None:
-    for message in data.messages:
-        if isinstance(message, TopicEvent):
-            return message.content.topic
-
-
-def get_initial_state_events(data: ExportFile) -> list[StateEvent]:
-    events: list[StateEvent] = []
-    for message in data.messages:
-        if isinstance(
-            message, (JoinRulesEvent, HistoryVisibilityEvent, GuestAccessEvent)
-        ):
-            events.append(
-                StateEvent(
-                    content=message.content,
-                    state_key=message.state_key,
-                    type=message.type,
-                )
-            )
-    return events
-
-
 def get_room_creator_id(data: ExportFile) -> str:
     for message in data.messages:
         if (
@@ -73,6 +52,42 @@ def get_room_creator_id(data: ExportFile) -> str:
         ):
             return message.sender
     raise ValueError("No creator in the room")
+
+
+async def create_room(
+    client: Client, data: ExportFile
+) -> CreateRoomResponse | ErrorResponse:
+    initial_state: list[StateEvent] = []
+    creation_content = CreationContent(federate=False)
+    ts: int | None = None
+    user_id: str | None = None
+    room_topic: str | None = None
+    for message in data.messages:
+        if (
+            isinstance(message, MemberEvent)
+            and message.content.displayname == data.room_creator
+        ):
+            user_id = message.sender
+            ts = message.origin_server_ts
+        elif isinstance(
+            message, (JoinRulesEvent, HistoryVisibilityEvent, GuestAccessEvent)
+        ):
+            initial_state.append(
+                StateEvent(
+                    content=message.content,
+                    state_key=message.state_key,
+                    type=message.type,
+                )
+            )
+        elif isinstance(message, TopicEvent):
+            room_topic = message.content.topic
+    create_room_body = CreateRoomBody(
+        initial_state=initial_state,
+        creation_content=creation_content,
+        name=data.room_name,
+        topic=room_topic,
+    )
+    return await client.create_room(create_room_body, user_id, ts)
 
 
 def load_data(zip_path: Path) -> ExportFile:
@@ -90,7 +105,6 @@ async def populate_message(client: Client, data: ExportFile, new_room_id: str):
             if message.content.file is not None:
                 continue
             await client.send_event(
-                message.sender,
                 message.type,
                 new_room_id,
                 RoomMessage(
@@ -101,16 +115,19 @@ async def populate_message(client: Client, data: ExportFile, new_room_id: str):
                     mentions=message.content.mentions,
                     relates_to=message.content.relates_to,
                 ),
+                user_id=message.sender,
+                ts=message.origin_server_ts,
             )
         elif isinstance(message, MemberEvent):
             if message.sender == get_room_creator_id(data):
                 continue
             await client.send_state_event(
-                message.sender,
                 message.type,
                 new_room_id,
                 message.content.model_dump(),
                 message.state_key,
+                user_id=message.sender,
+                ts=message.origin_server_ts,
             )
             # Let time for the server to accept invite
             await asyncio.sleep(3)
@@ -137,16 +154,7 @@ async def import_task_runner(client: Client, config: Config):
     for room_data in config.path_to_import_files.iterdir():
         if room_data.suffix == ".zip":
             data = load_data(room_data)
-            creator_id = get_room_creator_id(data)
-            create_room_body = CreateRoomBody(
-                initial_state=get_initial_state_events(data),
-                creation_content=CreationContent(
-                    federate=False,
-                ),
-                name=data.room_name,
-                topic=get_topic(data),
-            )
-            room_resp = await client.create_room(create_room_body, creator_id)
+            room_resp = await create_room(client, data)
             if isinstance(room_resp, CreateRoomResponse):
                 await populate_message(client, data, room_resp.room_id)
 
