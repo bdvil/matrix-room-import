@@ -91,6 +91,26 @@ async def handle_transaction(request: web.Request) -> web.Response:
     return web.json_response({}, status=200)
 
 
+async def send_help_message(config: Config, client: Client, room_id: str, user_id: str):
+    await client.send_event(
+        "m.room.message",
+        room_id,
+        RoomMessage(
+            msgtype=MsgType.text,
+            body=f"""Hello! Send me chat export files and I will import them back for you!
+
+On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
+Select the JSON format, "From the beginning" in Messages, a high size limit, and check
+the "Include Attachments" box.
+
+You can send "space-id !roomId:{config.server_name}" so that imported chats are put in
+the given space.
+""",
+        ),
+        user_id=user_id,
+    )
+
+
 async def handle_room_member(
     config: Config,
     client: Client,
@@ -106,20 +126,7 @@ async def handle_room_member(
         resp = await client.join_room(event.room_id, JoinRoomBody())
         if isinstance(resp, JoinRoomResponse):
             room_stores.append(resp.room_id)
-            await client.send_event(
-                "m.room.message",
-                resp.room_id,
-                RoomMessage(
-                    msgtype=MsgType.text,
-                    body="""Hello! Send me chat export files and I will import them back for you!
-
-On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
-Select the JSON format, "From the beginning" in Messages, a high size limit, and check
-the "Include Attachments" box.
-""",
-                ),
-                user_id=bot_userid,
-            )
+            await send_help_message(config, client, resp.room_id, bot_userid)
 
         LOGGER.debug(resp)
 
@@ -134,8 +141,24 @@ async def handle_room_message(
     bot_userid = f"@{config.as_id}:{config.server_name}"
     if event.sender == bot_userid or event.sender not in config.bot_allow_users:
         return
-    print(rooms_to_remove)
-    print(event.content)
+
+    if content.body.lower() == "help":
+        await send_help_message(config, client, event.room_id, bot_userid)
+        return
+
+    if content.body.lower()[:8] == "space-id":
+        config.space_id = content.body.split(" ")[1]
+        resp = await client.send_event(
+            "m.room.message",
+            event.room_id,
+            RoomMessage(
+                msgtype=MsgType.text,
+                body="Following imported rooms will be put in this space.\nNote: this also affects the queued import jobs.",
+            ),
+            user_id=bot_userid,
+        )
+        return
+
     if (
         event.content.get("m.relates_to") is not None
         and event.content["m.relates_to"]["event_id"] in rooms_to_remove
@@ -161,6 +184,7 @@ async def handle_room_message(
             ),
             user_id=bot_userid,
         )
+        return
 
     if content.msgtype == MsgType.file and content.url is not None:
         print("Received message")
@@ -207,3 +231,4 @@ async def handle_room_message(
                 user_id=bot_userid,
             )
             concurrency.num_export_process_sem.release()
+        return

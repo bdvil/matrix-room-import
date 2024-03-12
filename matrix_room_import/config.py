@@ -29,6 +29,8 @@ class Config(BaseModel):
 
     bot_allow_users: Sequence[str] = Field(default_factory=list)
 
+    space_id: str | None = None
+
 
 def load_config() -> Config:
     default_config_path = PROJECT_DIR / "example-config.yaml"
