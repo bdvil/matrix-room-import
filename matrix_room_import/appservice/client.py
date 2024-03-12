@@ -196,8 +196,6 @@ class Client:
             self.hs_url, room_id, event_type, state_key, user_id, ts
         )
         LOGGER.info("CLIENT send_state_event")
-        self.should_accept_memberships.append((state_key, room_id))
-        should_remove_idx = len(self.should_accept_memberships)
         response, data = await self.request(url, HTTPMethod.put, room_message)
 
         if response.status == 200:
@@ -207,7 +205,6 @@ class Client:
                 {"headers": response.headers, "event_id": data.event_id},
             )
             return data
-        self.should_accept_memberships.pop(should_remove_idx)
         data = ErrorResponse(**await response.json(), statuscode=response.status)
         LOGGER.debug(
             "CLIENT send_event error data: %s",

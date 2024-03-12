@@ -8,7 +8,7 @@ from aiohttp import web
 from aiohttp.web import Application
 
 from matrix_room_import import LOGGER
-from matrix_room_import.appkeys import client_key, config_key
+from matrix_room_import.appkeys import client_key, config_key, events_key
 from matrix_room_import.appservice import server
 from matrix_room_import.appservice.client import Client
 from matrix_room_import.appservice.types import (
@@ -19,12 +19,14 @@ from matrix_room_import.appservice.types import (
     RoomMessage,
     StateEvent,
 )
+from matrix_room_import.concurrency_events import ConcurrencyEvents
 from matrix_room_import.config import Config, load_config
 from matrix_room_import.export_file_model import (
     ExportFile,
     GuestAccessEvent,
     HistoryVisibilityEvent,
     JoinRulesEvent,
+    MemberContent,
     MemberEvent,
     MessageEvent,
     TopicEvent,
@@ -99,7 +101,13 @@ def load_data(zip_path: Path) -> ExportFile:
     return data
 
 
-async def populate_message(client: Client, data: ExportFile, new_room_id: str):
+async def populate_message(
+    client: Client,
+    data: ExportFile,
+    new_room_id: str,
+    events: ConcurrencyEvents,
+    room_creator_id: str,
+):
     for message in data.messages:
         if isinstance(message, MessageEvent):
             if message.content.file is not None:
@@ -118,28 +126,44 @@ async def populate_message(client: Client, data: ExportFile, new_room_id: str):
                 user_id=message.sender,
                 ts=message.origin_server_ts,
             )
-        elif isinstance(message, MemberEvent):
-            if message.sender == get_room_creator_id(data):
+            print("Sending join request")
+        elif (
+            isinstance(message, MemberEvent) and message.content.membership == "invite"
+        ):
+            if message.sender == room_creator_id:
                 continue
+            client.should_accept_memberships.append((message.state_key, new_room_id))
             await client.send_state_event(
                 message.type,
                 new_room_id,
-                message.content.model_dump(),
+                MemberContent(
+                    membership="invite",
+                    displayname=message.content.displayname,
+                    avatar_url=message.content.avatar_url,
+                ).model_dump(),
                 message.state_key,
                 user_id=message.sender,
                 ts=message.origin_server_ts,
             )
-            # Let time for the server to accept invite
-            await asyncio.sleep(3)
+        elif isinstance(message, MemberEvent) and message.content.membership == "join":
+            if message.sender == room_creator_id:
+                continue
+            events.should_accept_invite.set()
+            print("Awaiting join request")
+            await events.has_accepted_invite.wait()
+            events.has_accepted_invite.clear()
 
 
-async def http_server_task_runner(config: Config, client: Client):
+async def http_server_task_runner(
+    config: Config, client: Client, events: ConcurrencyEvents
+):
     app = Application()
     app.add_routes(
         [web.put("/_matrix/app/v1/transactions/{txnId}", server.handle_transaction)]
     )
     app[config_key] = config
     app[client_key] = client
+    app[events_key] = events
 
     runner = web.AppRunner(app)
     await runner.setup()
@@ -148,15 +172,18 @@ async def http_server_task_runner(config: Config, client: Client):
     await asyncio.Event().wait()
 
 
-async def import_task_runner(client: Client, config: Config):
+async def import_task_runner(client: Client, config: Config, events: ConcurrencyEvents):
     await client.delete_rooms(config.delete_rooms)
 
     for room_data in config.path_to_import_files.iterdir():
         if room_data.suffix == ".zip":
             data = load_data(room_data)
             room_resp = await create_room(client, data)
+            room_creator_id = get_room_creator_id(data)
             if isinstance(room_resp, CreateRoomResponse):
-                await populate_message(client, data, room_resp.room_id)
+                await populate_message(
+                    client, data, room_resp.room_id, events, room_creator_id
+                )
 
 
 async def main():
@@ -164,8 +191,15 @@ async def main():
     LOGGER.debug("CONFIG: %s", config.model_dump())
 
     client = Client(config.homeserver_url, config.as_token, config.as_id)
-    server_task = asyncio.create_task(http_server_task_runner(config, client))
-    import_task = asyncio.create_task(import_task_runner(client, config))
+
+    concurreny_events = ConcurrencyEvents()
+
+    server_task = asyncio.create_task(
+        http_server_task_runner(config, client, concurreny_events)
+    )
+    import_task = asyncio.create_task(
+        import_task_runner(client, config, concurreny_events)
+    )
 
     await server_task
     await import_task
