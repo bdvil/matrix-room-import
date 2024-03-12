@@ -9,7 +9,6 @@ from aiohttp import ClientResponse, ClientSession
 from matrix_room_import import LOGGER, matrix_api
 from matrix_room_import.appservice.types import (
     ArrayOfClientEvents,
-    ClientEvent,
     CreateMediaResponse,
     CreateRoomBody,
     CreateRoomResponse,
@@ -25,6 +24,8 @@ from matrix_room_import.appservice.types import (
     ProfileDisplayNameBody,
     ProfileDisplayNameResponse,
     ProfileResponse,
+    RedactMessageBody,
+    RedactMessageResponse,
     RoomMessage,
     RoomSendEventResponse,
     UploadMediaResponse,
@@ -378,13 +379,45 @@ class Client:
         response, data = await self.request(url, HTTPMethod.get)
 
         if response.status == 200:
-            LOGGER.debug(data)
             data = ArrayOfClientEvents(data)
             LOGGER.debug(data)
             return data
         data = ErrorResponse(**await response.json(), statuscode=response.status)
         LOGGER.debug(
             "CLIENT get room state error data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        return data
+
+    async def redact_message(
+        self,
+        room_id: str,
+        event_id: str,
+        reason: str | None = None,
+        txn_id: str | None = None,
+        user_id: str | None = None,
+        ts: int | None = None,
+    ):
+        txn_id = txn_id or new_txn()
+        url = matrix_api.redact_message(
+            self.hs_url, room_id, event_id, txn_id, user_id, ts
+        )
+        LOGGER.info("CLIENT redact message")
+        response, data = await self.request(
+            url,
+            HTTPMethod.put,
+            RedactMessageBody(reason=reason).model_dump(
+                by_alias=True, exclude_defaults=True
+            ),
+        )
+
+        if response.status == 200:
+            data = RedactMessageResponse(**data)
+            LOGGER.debug(data)
+            return data
+        data = ErrorResponse(**await response.json(), statuscode=response.status)
+        LOGGER.debug(
+            "CLIENT redact message error data: %s",
             {"headers": response.headers, "body": data},
         )
         return data

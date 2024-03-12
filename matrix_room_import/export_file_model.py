@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
@@ -21,8 +22,8 @@ class StateEventBase(EventBase):
 
 class MemberContent(BaseModel):
     membership: str
-    displayname: str
-    avatar_url: str
+    displayname: str | None = None
+    avatar_url: str | None = None
     join_authorised_via_users_server: str | None = None
 
 
@@ -112,6 +113,17 @@ class GenericEvent(EventBase):
     content: Any
 
 
+class SpaceChildContent(BaseModel):
+    via: Sequence[str]
+    order: str | None = None
+    suggested: bool | None = None
+
+
+class SpaceChildEvent(StateEventBase):
+    type: Literal["m.space.child"]
+    content: SpaceChildContent
+
+
 Event = Annotated[
     MemberEvent
     | EncryptionEvent
@@ -120,6 +132,7 @@ Event = Annotated[
     | HistoryVisibilityEvent
     | RoomNameEvent
     | TopicEvent
+    | SpaceChildEvent
     | MessageEvent
     | GenericEvent,
     Field(discriminator="type"),

@@ -103,8 +103,22 @@ On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
 Select the JSON format, "From the beginning" in Messages, a high size limit, and check
 the "Include Attachments" box.
 
-You can send "space-id !roomId:{config.server_name}" so that imported chats are put in
-the given space.
+Commands:
+* `space-id !roomId:{config.server_name}`: set space to import rooms into. (Currently: {config.space_id}).
+* `set-admin-token syt_Ysddjk...`: set admin access-token so that old rooms can be deleted.
+""",
+            format="org.matrix.custom.html",
+            formatted_body=f"""Hello! Send me chat export files and I will import them back for you!<br>
+<br>
+On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
+Select the JSON format, "From the beginning" in Messages, a high size limit, and check
+the "Include Attachments" box.<br>
+<br>
+Commands:
+<ul>
+    <li><code>space-id !roomId:{config.server_name}</code>: set space to import rooms into. (Currently: {config.space_id}).</li>
+    <li><code>set-admin-token syt_Ysddjk...</code>: set admin access-token so that old rooms can be deleted.</li>
+<ul>
 """,
         ),
         user_id=user_id,
@@ -141,6 +155,24 @@ async def handle_room_message(
     bot_userid = f"@{config.as_id}:{config.server_name}"
     if event.sender == bot_userid or event.sender not in config.bot_allow_users:
         return
+
+    if content.body.lower()[:15] == "set-admin-token":
+        config.admin_token = content.body.split(" ")[1]
+        await client.redact_message(
+            event.room_id,
+            event.event_id,
+            reason="Security",
+            user_id=bot_userid,
+        )
+        resp = await client.send_event(
+            "m.room.message",
+            event.room_id,
+            RoomMessage(
+                msgtype=MsgType.text,
+                body="Changed Admin Access Token.",
+            ),
+            user_id=bot_userid,
+        )
 
     if content.body.lower() == "help":
         await send_help_message(config, client, event.room_id, bot_userid)

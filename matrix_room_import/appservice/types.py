@@ -286,6 +286,14 @@ class CreateRoomResponse(BaseModel):
     room_id: str
 
 
+class RedactMessageBody(BaseModel):
+    reason: str | None = None
+
+
+class RedactMessageResponse(BaseModel):
+    event_id: str | None = None
+
+
 class DeleteRoomBody(BaseModel):
     new_room_user_id: str | None = None
     room_name: str | None = None

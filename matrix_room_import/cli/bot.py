@@ -34,6 +34,7 @@ from matrix_room_import.export_file_model import (
     MemberContent,
     MemberEvent,
     MessageEvent,
+    SpaceChildContent,
     TopicEvent,
 )
 from matrix_room_import.stores import Process, process_queue, rooms_to_remove
@@ -45,6 +46,12 @@ FILE_CONTENT_TYPES = {
     "svg": "image/svg+xml",
     "pdf": "application/pdf",
 }
+
+
+def get_initial_ts(data: ExportFile) -> int:
+    for message in data.messages:
+        return message.origin_server_ts
+    raise ValueError("No message with room_id.")
 
 
 def get_room_id(data: ExportFile) -> str:
@@ -359,48 +366,52 @@ async def import_task_runner(
                 files: dict[str, bytes] = {}
             file_paths: dict[str, str] = {}
 
+            print(data)
             if data is not None:
                 old_room_id = get_room_id(data)
                 room_creator_id = get_room_creator_id(data)
 
-                if config.space_id is not None:
-                    room_state = await client.get_room_state(
-                        config.space_id, room_creator_id
+                mimetype_files = get_file_mimetype(data)
+                print(mimetype_files)
+                for filename, content in files.items():
+                    mimetype = mimetype_files.get(filename, None)
+                    resp = await client.create_and_upload_media(
+                        content, filename, mimetype
                     )
-                    print("====")
-                    print(room_state)
-            #
-            #     room_state = await client.get_room_state(old_room_id, room_creator_id)
-            #     print("====")
-            #     print(room_state)
-            #
-            #     mimetype_files = get_file_mimetype(data)
-            #     print(mimetype_files)
-            #     for filename, content in files.items():
-            #         mimetype = mimetype_files.get(filename, None)
-            #         resp = await client.create_and_upload_media(
-            #             content, filename, mimetype
-            #         )
-            #         if isinstance(resp, CreateMediaResponse):
-            #             file_paths[filename] = resp.content_uri
-            #     print(file_paths)
-            #
-            #     await signal_import_room_started(config, process, client)
-            #
-            #     room_resp = await create_room(client, data)
-            #     if isinstance(room_resp, CreateRoomResponse):
-            #         await populate_message(
-            #             client,
-            #             data,
-            #             room_resp.room_id,
-            #             room_creator_id,
-            #             file_paths,
-            #         )
-            #         await signal_import_ended(
-            #             config, process, client, room_resp.room_id, old_room_id
-            #         )
-            #     else:
-            #         await signal_import_failed(config, process, client, room_resp)
+                    if isinstance(resp, CreateMediaResponse):
+                        file_paths[filename] = resp.content_uri
+                print(file_paths)
+
+                await signal_import_room_started(config, process, client)
+
+                room_resp = await create_room(client, data)
+
+                if isinstance(room_resp, CreateRoomResponse):
+                    if config.space_id is not None:
+                        print(f"Adding room to space {config.space_id}")
+                        resp = await client.send_state_event(
+                            "m.space.child",
+                            config.space_id,
+                            SpaceChildContent(
+                                via=[config.server_name],
+                            ).model_dump(exclude_defaults=True),
+                            room_resp.room_id,
+                            user_id=room_creator_id,
+                        )
+                        print(resp)
+
+                    await populate_message(
+                        client,
+                        data,
+                        room_resp.room_id,
+                        room_creator_id,
+                        file_paths,
+                    )
+                    await signal_import_ended(
+                        config, process, client, room_resp.room_id, old_room_id
+                    )
+                else:
+                    await signal_import_failed(config, process, client, room_resp)
 
 
 async def main():

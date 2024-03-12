@@ -154,7 +154,27 @@ def get_room_state(
     user_id: str | None = None,
 ) -> str:
     query_data: dict[str, str] = {}
-    if user_id:
+    if user_id is not None:
         query_data["user_id"] = user_id
     query = urlencode(query_data)
     return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/state?{query}"
+
+
+def redact_message(
+    hs_url: str,
+    room_id: str,
+    event_id: str,
+    txn_id: str,
+    user_id: str | None = None,
+    ts: int | None = None,
+) -> str:
+    query_data: dict[str, str] = {}
+    if user_id is not None:
+        query_data["user_id"] = user_id
+    if ts is not None:
+        query_data["ts"] = str(ts)
+    query = urlencode(query_data)
+    return (
+        sanitize_url(hs_url)
+        + f"/_matrix/client/v3/rooms/{room_id}/redact/{event_id}/{txn_id}?{query}"
+    )
