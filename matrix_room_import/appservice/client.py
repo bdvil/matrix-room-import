@@ -7,10 +7,13 @@ from aiohttp import ClientResponse, ClientSession
 
 from matrix_room_import import LOGGER, matrix_api
 from matrix_room_import.appservice.types import (
+    CreateMediaResponse,
     CreateRoomBody,
     CreateRoomResponse,
     DeleteRoomResponse,
     ErrorResponse,
+    InviteToRoomBody,
+    InviteToRoomResponse,
     JoinRoomBody,
     JoinRoomResponse,
     PingBody,
@@ -18,6 +21,7 @@ from matrix_room_import.appservice.types import (
     ProfileResponse,
     RoomMessage,
     RoomSendEventResponse,
+    UploadMediaResponse,
     WhoAmIResponse,
 )
 
@@ -53,13 +57,18 @@ class Client:
         method: HTTPMethod,
         body: Any = None,
         headers: Mapping[str, str] | None = None,
+        data: bytes | None = None,
     ) -> tuple[ClientResponse, Any]:
         if body is None:
             body = {}
         if headers is None:
             headers = self.headers
+        if data is not None:
+            body = None
         async with ClientSession(headers=headers) as session:
-            async with session.request(method.value, url, json=body) as response:
+            async with session.request(
+                method.value, url, data=data, json=body
+            ) as response:
                 data = await response.json()
                 return response, data
 
@@ -107,11 +116,36 @@ class Client:
             return ProfileResponse(**data)
         return ErrorResponse(**data, statuscode=response.status)
 
-    async def join_room(self, room_id: str) -> JoinRoomResponse | ErrorResponse:
-        url = matrix_api.room_join(self.hs_url, room_id)
+    async def invite(
+        self,
+        room_id: str,
+        body: InviteToRoomBody,
+        user_id: str | None = None,
+        ts: int | None = None,
+    ) -> InviteToRoomResponse | ErrorResponse:
+        url = matrix_api.invite_room(self.hs_url, room_id, user_id, ts)
+        LOGGER.info("CLIENT join_room")
+        print(url)
+        response, data = await self.request(
+            url, HTTPMethod.post, body.model_dump(exclude_defaults=True)
+        )
+        if response.status == 200:
+            print(data)
+            return InviteToRoomResponse(**data)
+        print(data)
+        return ErrorResponse(**data, statuscode=response.status)
+
+    async def join_room(
+        self,
+        room_id: str,
+        body: JoinRoomBody,
+        user_id: str | None = None,
+        ts: int | None = None,
+    ) -> JoinRoomResponse | ErrorResponse:
+        url = matrix_api.room_join(self.hs_url, room_id, user_id, ts)
         LOGGER.info("CLIENT join_room")
         response, data = await self.request(
-            url, HTTPMethod.post, JoinRoomBody().model_dump()
+            url, HTTPMethod.post, body.model_dump(exclude_defaults=True)
         )
         if response.status == 200:
             return JoinRoomResponse(**data)
@@ -211,3 +245,63 @@ class Client:
             {"headers": response.headers, "body": data},
         )
         return data
+
+    async def create_media(self) -> CreateMediaResponse | ErrorResponse:
+        url = matrix_api.create_media(self.hs_url)
+        LOGGER.info("CLIENT create_media")
+        response, data = await self.request(url, HTTPMethod.post)
+
+        if response.status == 200:
+            data = CreateMediaResponse(**data)
+            LOGGER.debug(data)
+            return data
+        data = ErrorResponse(**await response.json(), statuscode=response.status)
+        LOGGER.debug(
+            "CLIENT create_media error data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        return data
+
+    async def upload_media(
+        self,
+        server_name: str,
+        media_id: str,
+        content: bytes,
+        filename: str | None = None,
+        content_type: str | None = None,
+    ) -> UploadMediaResponse | ErrorResponse:
+        url = matrix_api.upload_media(self.hs_url, server_name, media_id, filename)
+        LOGGER.info("CLIENT upload_media")
+        if content_type is None:
+            content_type = "application/octet-stream"
+        headers = {**self.headers, "Content-Type": content_type}
+        response, data = await self.request(
+            url, HTTPMethod.put, headers=headers, data=content
+        )
+
+        if response.status == 200:
+            data = UploadMediaResponse(**data)
+            LOGGER.debug(data)
+            return data
+        data = ErrorResponse(**await response.json(), statuscode=response.status)
+        LOGGER.debug(
+            "CLIENT upload_media error data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        return data
+
+    async def create_and_upload_media(
+        self,
+        content: bytes,
+        filename: str | None = None,
+        content_type: str | None = None,
+    ) -> CreateMediaResponse | ErrorResponse:
+        resp = await self.create_media()
+        if isinstance(resp, CreateMediaResponse):
+            server_name, _, media_id = resp.content_uri[6:].partition("/")
+            upload_resp = await self.upload_media(
+                server_name, media_id, content, filename, content_type
+            )
+            if isinstance(upload_resp, ErrorResponse):
+                return upload_resp
+        return resp

@@ -11,6 +11,8 @@ class EventBase(BaseModel):
     unsigned: Any
     event_id: str
     room_id: str
+    age: int | None = None
+    user_id: str | None = None
 
 
 class StateEventBase(EventBase):
@@ -92,7 +94,7 @@ class MessageContent(BaseModel):
     formatted_body: Any | None = None
     mentions: Mentions | None = Field(alias="m.mentions", default=None)
     file: Any | None = None
-    info: Any | None = None
+    info: dict[str, Any] = Field(default_factory=dict)
     relates_to: RelatesTo | None = Field(alias="m.relates_to", default=None)
 
 

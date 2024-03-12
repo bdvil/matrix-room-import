@@ -31,6 +31,18 @@ def profile_displayname(hs_url: str, user_id: str) -> str:
     return sanitize_url(hs_url) + f"/_matrix/client/v3/profile/{user_id}/displayname"
 
 
+def invite_room(
+    hs_url: str, room_id: str, user_id: str | None = None, ts: int | None = None
+) -> str:
+    query_data: dict[str, str] = {}
+    if user_id is not None:
+        query_data["user_id"] = user_id
+    if ts is not None:
+        query_data["ts"] = str(ts)
+    query = urlencode(query_data)
+    return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/invite?{query}"
+
+
 def room_join(
     hs_url: str, room_id: str, user_id: str | None = None, ts: int | None = None
 ) -> str:
@@ -39,7 +51,8 @@ def room_join(
         query_data["user_id"] = user_id
     if ts is not None:
         query_data["ts"] = str(ts)
-    return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/join"
+    query = urlencode(query_data)
+    return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/join?{query}"
 
 
 def create_room(hs_url: str, user_id: str | None = None, ts: int | None = None) -> str:
@@ -93,4 +106,21 @@ def room_send_state_event(
     return (
         sanitize_url(hs_url)
         + f"/_matrix/client/v3/rooms/{room_id}/state/{event_type}/{state_key}?{query}"
+    )
+
+
+def create_media(hs_url: str) -> str:
+    return sanitize_url(hs_url) + "/_matrix/media/v1/create"
+
+
+def upload_media(
+    hs_url: str, server_name: str, media_id: str, filename: str | None = None
+) -> str:
+    query_data: dict[str, str] = {}
+    if filename is not None:
+        query_data["filename"] = filename
+    query = urlencode(query_data)
+    return (
+        sanitize_url(hs_url)
+        + f"/_matrix/media/v3/upload/{server_name}/{media_id}?{query}"
     )

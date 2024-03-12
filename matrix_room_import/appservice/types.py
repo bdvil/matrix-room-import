@@ -98,7 +98,10 @@ class InReplyTo(BaseModel):
 
 
 class RelatesTo(BaseModel):
-    in_reply_to: InReplyTo = Field(alias="m.in_reply_to")
+    in_reply_to: InReplyTo | None = Field(alias="m.in_reply_to", default=None)
+    rel_type: str | None = None
+    event_id: str | None = None
+    is_falling_back: bool | None = None
 
 
 class RoomMessage(BaseModel):
@@ -284,6 +287,15 @@ class DeleteRoomResponse(BaseModel):
     delete_id: str
 
 
+class InviteToRoomBody(BaseModel):
+    reason: str | None = None
+    user_id: str
+
+
+class InviteToRoomResponse(BaseModel):
+    pass
+
+
 class JoinRoomBody(BaseModel):
     reason: str | None = None
     third_party_signed: ThirdPartySigned | None = None
@@ -391,6 +403,15 @@ class LoginResponse(BaseModel):
 
 class RoomSendEventResponse(BaseModel):
     event_id: str
+
+
+class CreateMediaResponse(BaseModel):
+    content_uri: str
+    unused_expires_at: int | None = None
+
+
+class UploadMediaResponse(BaseModel):
+    pass
 
 
 Signatures = RootModel[Mapping[str, Mapping[str, str]]]

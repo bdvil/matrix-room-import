@@ -80,11 +80,15 @@ async def handle_room_member(
     content: RoomMember,
     concurrency_events: ConcurrencyEvents,
 ):
+    return
+    print("== Received room member event ==")
     if content.membership == MembershipEnum.invite:
         removed_id = None
         for k, (user_id, room_id) in enumerate(client.should_accept_memberships):
             if user_id == event.state_key and room_id == event.room_id:
+                print("== Waiting for shoud invite event ==")
                 await concurrency_events.should_accept_invite.wait()
+                print("== Should invite now ==")
                 resp = await client.join_room(event.room_id)
                 LOGGER.debug(resp)
                 removed_id = k
