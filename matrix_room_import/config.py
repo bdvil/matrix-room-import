@@ -21,9 +21,13 @@ class Config(BaseModel):
 
     path_to_import_files: Path
 
+    admin_token: str
+
     port: int
 
-    delete_rooms: Sequence[str] = Field(default=[])
+    delete_rooms: Sequence[str] = Field(default_factory=list)
+
+    bot_allow_users: Sequence[str] = Field(default_factory=list)
 
 
 def load_config() -> Config:

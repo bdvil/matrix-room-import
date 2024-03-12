@@ -8,5 +8,10 @@ as_localpart: Appservice localpart
 
 bot_displayname: Matrix Import Bot
 
+# list of userids allowed to talk to the bot.
+bot_allow_users: []
+
+admin_token: admin access token
+
 path_to_import_files: "./path/to/folder"
 port: 8181

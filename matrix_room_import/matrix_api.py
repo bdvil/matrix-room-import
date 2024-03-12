@@ -66,7 +66,7 @@ def create_room(hs_url: str, user_id: str | None = None, ts: int | None = None) 
 
 
 def delete_room(hs_url: str, room_id: str) -> str:
-    return sanitize_url(hs_url) + f"/_synapse/admin/v2/rooms/{room_id}"
+    return sanitize_url(hs_url) + f"/_synapse/admin/v1/rooms/{room_id}"
 
 
 def room_send_event(
@@ -144,5 +144,17 @@ def download_media(
     query = urlencode(query_data)
     return (
         sanitize_url(hs_url)
-        + f"/_matrix/media/v3/upload/{server_name}/{media_id}?{query}"
+        + f"/_matrix/media/v3/download/{server_name}/{media_id}?{query}"
     )
+
+
+def get_room_state(
+    hs_url: str,
+    room_id: str,
+    user_id: str | None = None,
+) -> str:
+    query_data: dict[str, str] = {}
+    if user_id:
+        query_data["user_id"] = user_id
+    query = urlencode(query_data)
+    return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/state?{query}"

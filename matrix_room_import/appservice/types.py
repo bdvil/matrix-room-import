@@ -215,6 +215,9 @@ class ClientEvent(Event):
     room_id: str
 
 
+ArrayOfClientEvents = RootModel[Sequence[ClientEvent]]
+
+
 class ClientEvents(BaseModel):
     events: Sequence[ClientEvent]
     ephemeral: Sequence[Event] | None = Field(
@@ -283,8 +286,19 @@ class CreateRoomResponse(BaseModel):
     room_id: str
 
 
+class DeleteRoomBody(BaseModel):
+    new_room_user_id: str | None = None
+    room_name: str | None = None
+    message: str | None = None
+    block: bool | None = None
+    purge: bool | None = None
+
+
 class DeleteRoomResponse(BaseModel):
-    delete_id: str
+    kicked_users: Sequence[str]
+    failed_to_kick_users: Sequence[str]
+    local_aliases: Sequence[str]
+    new_room_id: str | None = None
 
 
 class InviteToRoomBody(BaseModel):

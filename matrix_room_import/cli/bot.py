@@ -8,7 +8,7 @@ from aiohttp import web
 from aiohttp.web import Application
 
 from matrix_room_import import LOGGER
-from matrix_room_import.appkeys import client_key, config_key, events_key
+from matrix_room_import.appkeys import client_key, config_key, sync_sem_key
 from matrix_room_import.appservice import server
 from matrix_room_import.appservice.client import Client
 from matrix_room_import.appservice.types import (
@@ -18,12 +18,13 @@ from matrix_room_import.appservice.types import (
     CreationContent,
     ErrorResponse,
     ImageInfo,
+    MsgType,
     RelatesTo,
     RoomMessage,
     RoomSendEventResponse,
     StateEvent,
 )
-from matrix_room_import.concurrency_events import ConcurrencyEvents
+from matrix_room_import.concurrency_events import SyncTaskSems
 from matrix_room_import.config import Config, load_config
 from matrix_room_import.export_file_model import (
     ExportFile,
@@ -35,6 +36,7 @@ from matrix_room_import.export_file_model import (
     MessageEvent,
     TopicEvent,
 )
+from matrix_room_import.stores import Process, process_queue, rooms_to_remove
 
 FILE_CONTENT_TYPES = {
     "png": "image/png",
@@ -66,6 +68,64 @@ def get_room_creator_id(data: ExportFile) -> str:
         ):
             return message.sender
     raise ValueError("No creator in the room")
+
+
+async def signal_import_room_started(config: Config, process: Process, client: Client):
+    bot_userid = f"@{config.as_id}:{config.server_name}"
+    await client.send_event(
+        "m.room.message",
+        process.room_id,
+        RoomMessage(
+            msgtype=MsgType.text,
+            body="Start importing room...",
+            relates_to=RelatesTo(
+                rel_type="m.thread", event_id=process.event_id, is_falling_back=True
+            ),
+        ),
+        user_id=bot_userid,
+    )
+
+
+async def signal_import_ended(
+    config: Config, process: Process, client: Client, new_room_id: str, old_room_id: str
+):
+    bot_userid = f"@{config.as_id}:{config.server_name}"
+    await client.send_event(
+        "m.room.message",
+        process.room_id,
+        RoomMessage(
+            msgtype=MsgType.text,
+            body=(
+                f"Import finished. Here is the new room: \n{new_room_id}"
+                '\n\nShould I remove the old room? (Send back "yes" in the thread).'
+            ),
+            relates_to=RelatesTo(
+                rel_type="m.thread", event_id=process.event_id, is_falling_back=True
+            ),
+        ),
+        user_id=bot_userid,
+    )
+    rooms_to_remove[process.event_id] = old_room_id
+
+
+async def signal_import_failed(
+    config: Config, process: Process, client: Client, error_resp: ErrorResponse
+):
+    bot_userid = f"@{config.as_id}:{config.server_name}"
+    await client.send_event(
+        "m.room.message",
+        process.room_id,
+        RoomMessage(
+            msgtype=MsgType.text,
+            body=(
+                f"Import Failed with error: {error_resp.errcode} - {error_resp.error}"
+            ),
+            relates_to=RelatesTo(
+                rel_type="m.thread", event_id=process.event_id, is_falling_back=True
+            ),
+        ),
+        user_id=bot_userid,
+    )
 
 
 async def create_room(
@@ -122,7 +182,13 @@ def get_file_mimetype(data: ExportFile) -> dict[str, str]:
     return mimetypes
 
 
-def load_data(
+def load_export_file(file_path: Path) -> ExportFile:
+    with open(file_path) as export_file:
+        data = ExportFile.model_validate(json.loads(export_file.read()))
+    return data
+
+
+def load_zip_export(
     zip_path: Path,
 ) -> tuple[ExportFile | None, dict[str, bytes]]:
     files: dict[str, bytes] = {}
@@ -154,7 +220,6 @@ async def populate_message(
     client: Client,
     data: ExportFile,
     new_room_id: str,
-    events: ConcurrencyEvents,
     room_creator_id: str,
     file_paths: dict[str, str],
 ):
@@ -258,7 +323,7 @@ async def populate_message(
 
 
 async def http_server_task_runner(
-    config: Config, client: Client, events: ConcurrencyEvents
+    config: Config, client: Client, sync_tasks_sem: SyncTaskSems
 ):
     app = Application()
     app.add_routes(
@@ -266,7 +331,7 @@ async def http_server_task_runner(
     )
     app[config_key] = config
     app[client_key] = client
-    app[events_key] = events
+    app[sync_sem_key] = sync_tasks_sem
 
     bot_userid = f"@{config.as_id}:{config.server_name}"
     await client.update_bot_profile(bot_userid, config.bot_displayname)
@@ -278,60 +343,78 @@ async def http_server_task_runner(
     await asyncio.Event().wait()
 
 
-async def import_task_runner(client: Client, config: Config, events: ConcurrencyEvents):
+async def import_task_runner(
+    client: Client, config: Config, sync_tasks_sem: SyncTaskSems
+):
     await client.delete_rooms(config.delete_rooms)
 
-    for room_data in config.path_to_import_files.iterdir():
-        if room_data.suffix == ".zip":
-            data, files = load_data(room_data)
+    while True:
+        await sync_tasks_sem.num_export_process_sem.acquire()
+        process = process_queue.pop(0)
+        if process.path.suffix == ".zip" or process.path.suffix == ".json":
+            if process.path.suffix == ".zip":
+                data, files = load_zip_export(process.path)
+            else:
+                data = load_export_file(process.path)
+                files: dict[str, bytes] = {}
             file_paths: dict[str, str] = {}
-            file_paths = {
-                "main.pdf": "mxc://dvil.fr/nAqKwHiTqKBSwItJtMMCJyyc",
-                "Capture d'écran 2024-02-08 102111.png": "mxc://dvil.fr/NSIgfPWQDKZCzYhUmnoJvtkT",
-            }
 
             if data is not None:
+                old_room_id = get_room_id(data)
+                room_creator_id = get_room_creator_id(data)
+
+                room_state = await client.get_room_state(old_room_id, room_creator_id)
+                print("====")
+                print(room_state)
+
                 mimetype_files = get_file_mimetype(data)
                 print(mimetype_files)
-                # for filename, content in files.items():
-                #     mimetype = mimetype_files.get(filename, None)
-                #     resp = await client.create_and_upload_media(
-                #         content, filename, mimetype
-                #     )
-                #     if isinstance(resp, CreateMediaResponse):
-                #         file_paths[filename] = resp.content_uri
+                for filename, content in files.items():
+                    mimetype = mimetype_files.get(filename, None)
+                    resp = await client.create_and_upload_media(
+                        content, filename, mimetype
+                    )
+                    if isinstance(resp, CreateMediaResponse):
+                        file_paths[filename] = resp.content_uri
                 print(file_paths)
 
+                await signal_import_room_started(config, process, client)
+
                 room_resp = await create_room(client, data)
-                room_creator_id = get_room_creator_id(data)
                 if isinstance(room_resp, CreateRoomResponse):
                     await populate_message(
                         client,
                         data,
                         room_resp.room_id,
-                        events,
                         room_creator_id,
                         file_paths,
                     )
+                    await signal_import_ended(
+                        config, process, client, room_resp.room_id, old_room_id
+                    )
+                else:
+                    await signal_import_failed(config, process, client, room_resp)
 
 
 async def main():
     config = load_config()
     LOGGER.debug("CONFIG: %s", config.model_dump())
 
-    client = Client(config.homeserver_url, config.as_token, config.as_id)
+    client = Client(
+        config.homeserver_url, config.as_token, config.as_id, config.admin_token
+    )
 
-    concurreny_events = ConcurrencyEvents()
+    sync_tasks_sem = SyncTaskSems()
 
     server_task = asyncio.create_task(
-        http_server_task_runner(config, client, concurreny_events)
+        http_server_task_runner(config, client, sync_tasks_sem)
     )
-    # import_task = asyncio.create_task(
-    #     import_task_runner(client, config, concurreny_events)
-    # )
+    import_task = asyncio.create_task(
+        import_task_runner(client, config, sync_tasks_sem)
+    )
 
     await server_task
-    # await import_task
+    await import_task
 
 
 @click.command("serve")

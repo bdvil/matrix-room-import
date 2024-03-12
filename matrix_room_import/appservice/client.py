@@ -8,9 +8,12 @@ from aiohttp import ClientResponse, ClientSession
 
 from matrix_room_import import LOGGER, matrix_api
 from matrix_room_import.appservice.types import (
+    ArrayOfClientEvents,
+    ClientEvent,
     CreateMediaResponse,
     CreateRoomBody,
     CreateRoomResponse,
+    DeleteRoomBody,
     DeleteRoomResponse,
     ErrorResponse,
     InviteToRoomBody,
@@ -41,7 +44,7 @@ class HTTPMethod(str, Enum):
 
 
 class Client:
-    def __init__(self, hs_url: str, as_token: str, as_id: str):
+    def __init__(self, hs_url: str, as_token: str, as_id: str, admin_token: str):
         self.hs_url = hs_url
         self.as_token = as_token
         self.as_id = as_id
@@ -49,19 +52,20 @@ class Client:
             "Authorization": f"Bearer {as_token}",
         }
         self.admin_headers = {
-            "Authorization": "Bearer syt_YWRtaW4_PTtQhsGasAXJEzsmDXMh_171xm4",
+            "Authorization": f"Bearer {admin_token}",
         }
 
         self.should_accept_memberships: list[tuple[str, str]] = []
 
-    async def raw_request(
+    async def request(
         self,
         url: str,
         method: HTTPMethod,
         body: Any = None,
         headers: Mapping[str, str] | None = None,
         data: bytes | None = None,
-    ) -> ClientResponse:
+        raw: bool = False,
+    ) -> tuple[ClientResponse, Any]:
         if body is None:
             body = {}
         if headers is None:
@@ -72,19 +76,11 @@ class Client:
             async with session.request(
                 method.value, url, data=data, json=body
             ) as response:
-                return response
-
-    async def request(
-        self,
-        url: str,
-        method: HTTPMethod,
-        body: Any = None,
-        headers: Mapping[str, str] | None = None,
-        data: bytes | None = None,
-    ) -> tuple[ClientResponse, Any]:
-        response = await self.raw_request(url, method, body, headers, data)
-        data = await response.json()
-        return response, data
+                if raw:
+                    data = await response.read()
+                else:
+                    data = await response.json()
+                return response, data
 
     async def ping(
         self,
@@ -95,7 +91,7 @@ class Client:
 
         body = PingBody(transaction_id=transaction_id)
         response, data = await self.request(
-            url, HTTPMethod.post, body.model_dump(exclude_none=True)
+            url, HTTPMethod.post, body.model_dump(by_alias=True, exclude_none=True)
         )
         LOGGER.debug(
             "CLIENT ping data: %s",
@@ -136,7 +132,9 @@ class Client:
         url = matrix_api.profile_displayname(self.hs_url, user_id)
         LOGGER.info("CLIENT set displayname")
         body = ProfileDisplayNameBody(displayname=displayname)
-        response, data = await self.request(url, HTTPMethod.put, body.model_dump())
+        response, data = await self.request(
+            url, HTTPMethod.put, body.model_dump(by_alias=True)
+        )
         if response.status == 200:
             return ProfileDisplayNameResponse(**data)
         return ErrorResponse(**data, statuscode=response.status)
@@ -164,7 +162,7 @@ class Client:
         LOGGER.info("CLIENT join_room")
         print(url)
         response, data = await self.request(
-            url, HTTPMethod.post, body.model_dump(exclude_defaults=True)
+            url, HTTPMethod.post, body.model_dump(by_alias=True, exclude_defaults=True)
         )
         if response.status == 200:
             print(data)
@@ -182,7 +180,7 @@ class Client:
         url = matrix_api.room_join(self.hs_url, room_id, user_id, ts)
         LOGGER.info("CLIENT join_room")
         response, data = await self.request(
-            url, HTTPMethod.post, body.model_dump(exclude_defaults=True)
+            url, HTTPMethod.post, body.model_dump(by_alias=True, exclude_defaults=True)
         )
         if response.status == 200:
             return JoinRoomResponse(**data)
@@ -194,7 +192,7 @@ class Client:
         url = matrix_api.create_room(self.hs_url, user_id, ts)
         LOGGER.info("CLIENT create_room")
         response, data = await self.request(
-            url, HTTPMethod.post, body.model_dump(exclude_defaults=True)
+            url, HTTPMethod.post, body.model_dump(by_alias=True, exclude_defaults=True)
         )
         if response.status == 200:
             resp = CreateRoomResponse(**data)
@@ -204,15 +202,18 @@ class Client:
         LOGGER.debug(resp)
         return resp
 
-    async def delete_room(self, room_id: str):
+    async def delete_room(self, room_id: str, body: DeleteRoomBody):
         url = matrix_api.delete_room(self.hs_url, room_id)
         LOGGER.info("CLIENT delete_room")
         response, data = await self.request(
-            url, HTTPMethod.delete, headers=self.admin_headers
+            url,
+            HTTPMethod.delete,
+            body.model_dump(by_alias=True, exclude_defaults=True),
+            headers=self.admin_headers,
         )
         if response.status == 200:
             resp = DeleteRoomResponse(**data)
-            LOGGER.debug(resp.delete_id)
+            LOGGER.debug(resp)
             return resp
         resp = ErrorResponse(**data, statuscode=response.status)
         LOGGER.debug(resp)
@@ -220,7 +221,7 @@ class Client:
 
     async def delete_rooms(self, room_ids: Sequence[str]):
         for room_id in room_ids:
-            await self.delete_room(room_id)
+            await self.delete_room(room_id, DeleteRoomBody())
 
     async def send_event(
         self,
@@ -237,7 +238,9 @@ class Client:
         )
         LOGGER.info("CLIENT send_event")
         response, data = await self.request(
-            url, HTTPMethod.put, room_message.model_dump(exclude_defaults=True)
+            url,
+            HTTPMethod.put,
+            room_message.model_dump(by_alias=True, exclude_defaults=True),
         )
 
         if response.status == 200:
@@ -356,16 +359,32 @@ class Client:
             self.hs_url, server_name, media_id, allow_redirect, allow_remote, timeout_ms
         )
         LOGGER.info("CLIENT download media")
-        response = await self.raw_request(url, HTTPMethod.get)
+        response, data = await self.request(url, HTTPMethod.get, raw=True)
 
         if response.status == 200:
-            data = await response.read()
             with open(download_path, "wb") as f:
                 f.write(data)
             return True
         data = ErrorResponse(**await response.json(), statuscode=response.status)
         LOGGER.debug(
             "CLIENT download error data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        return data
+
+    async def get_room_state(self, room_id: str, user_id: str | None = None):
+        url = matrix_api.get_room_state(self.hs_url, room_id, user_id)
+        LOGGER.info("CLIENT get room state")
+        response, data = await self.request(url, HTTPMethod.get)
+
+        if response.status == 200:
+            LOGGER.debug(data)
+            data = ArrayOfClientEvents(data)
+            LOGGER.debug(data)
+            return data
+        data = ErrorResponse(**await response.json(), statuscode=response.status)
+        LOGGER.debug(
+            "CLIENT get room state error data: %s",
             {"headers": response.headers, "body": data},
         )
         return data
