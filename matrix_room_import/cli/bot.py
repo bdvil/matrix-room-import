@@ -103,8 +103,13 @@ async def signal_import_ended(
         RoomMessage(
             msgtype=MsgType.text,
             body=(
-                f"Import finished. Here is the new room: \n{new_room_id}"
+                f"Import finished. Here is the new room: \n`{new_room_id}`"
                 '\n\nShould I remove the old room? (Send back "yes" in the thread).'
+            ),
+            format="org.matrix.custom.html",
+            formatted_body=(
+                f"Import finished. Here is the new room: <br><code>{new_room_id}</code>"
+                '<br><br>Should I remove the old room? (Send back "yes" in the thread).'
             ),
             relates_to=RelatesTo(
                 rel_type="m.thread", event_id=process.event_id, is_falling_back=True
@@ -235,31 +240,17 @@ async def populate_message(
         print(message.type)
         print(type(message))
         print(message.content)
-        if isinstance(message, MemberEvent) and message.content.membership == "invite":
-            print("INVITE")
-            resp = await client.send_state_event(
-                message.type,
-                new_room_id,
-                MemberContent(
-                    membership="invite",
-                    displayname=message.content.displayname,
-                    avatar_url=message.content.avatar_url,
-                ).model_dump(),
-                message.state_key,
-                user_id=message.sender,
-                ts=message.origin_server_ts,
-            )
-            if isinstance(resp, RoomSendEventResponse):
-                new_event_ids[message.event_id] = resp.event_id
-        elif isinstance(message, MemberEvent) and message.content.membership == "join":
-            if message.sender == room_creator_id:
+        if isinstance(message, MemberEvent):
+            if (
+                message.sender == room_creator_id
+                and message.content.membership == "join"
+            ):
                 continue
-            print("JOIN")
             resp = await client.send_state_event(
                 message.type,
                 new_room_id,
                 MemberContent(
-                    membership="join",
+                    membership=message.content.membership,
                     displayname=message.content.displayname,
                     avatar_url=message.content.avatar_url,
                 ).model_dump(),
