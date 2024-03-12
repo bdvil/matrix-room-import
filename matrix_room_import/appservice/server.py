@@ -173,6 +173,7 @@ async def handle_room_message(
             ),
             user_id=bot_userid,
         )
+        return
 
     if content.body.lower() == "help":
         await send_help_message(config, client, event.room_id, bot_userid)
