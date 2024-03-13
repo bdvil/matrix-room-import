@@ -211,7 +211,7 @@ class ClientEvent(Event):
     event_id: str
     origin_server_ts: int
     state_key: str | None = None
-    unsigned: UnsignedData | None = None
+    unsigned: Any | None = None
     room_id: str
 
 
