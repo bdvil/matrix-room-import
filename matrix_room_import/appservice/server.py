@@ -109,7 +109,7 @@ Select the JSON format, "From the beginning" in Messages, a high size limit, and
 the "Include Attachments" box.
 
 Commands:
-* `space-id !roomId:{config.server_name}`: set space to import rooms into. (Currently: {config.space_id}).
+* `space-id !roomId:{config.server_name}`: set space to import rooms into. (Currently: https://matrix.to/#/{config.space_id}).
 * `set-admin-token syt_Ysddjk...`: set admin access-token so that old rooms can be deleted.
 """,
             format="org.matrix.custom.html",
@@ -121,7 +121,7 @@ the "Include Attachments" box.<br>
 <br>
 Commands:
 <ul>
-    <li><code>space-id !roomId:{config.server_name}</code>: set space to import rooms into. (Currently: {config.space_id}).</li>
+    <li><code>space-id !roomId:{config.server_name}</code>: set space to import rooms into. (Currently: https://matrix.to/#/{config.space_id}).</li>
     <li><code>set-admin-token syt_Ysddjk...</code>: set admin access-token so that old rooms can be deleted.</li>
 <ul>
 """,

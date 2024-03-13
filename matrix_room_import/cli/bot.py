@@ -116,12 +116,12 @@ async def signal_import_ended(
         RoomMessage(
             msgtype=MsgType.text,
             body=(
-                f"Import finished. Here is the new room: \n`{new_room_id}`"
+                f"Import finished. Here is the new room: https://matrix.to/#/{new_room_id}"
                 '\n\nShould I remove the old room? (Send back "yes" in the thread).'
             ),
             format="org.matrix.custom.html",
             formatted_body=(
-                f"Import finished. Here is the new room: <br><code>{new_room_id}</code>"
+                f"Import finished. Here is the new room: https://matrix.to/#/{new_room_id}"
                 '<br><br>Should I remove the old room? (Send back "yes" in the thread).'
             ),
             relates_to=RelatesTo(
@@ -339,16 +339,6 @@ async def populate_message(
             if isinstance(resp, RoomSendEventResponse):
                 new_event_ids[message.event_id] = resp.event_id
     return users_in_room
-    for user in users_in_room:
-        resp = await client.send_state_event(
-            "m.room.member",
-            get_room_id(data),
-            MemberContent(membership="leave").model_dump(
-                exclude_defaults=True, by_alias=True
-            ),
-            user,
-            user_id=user,
-        )
 
 
 async def http_server_task_runner(
