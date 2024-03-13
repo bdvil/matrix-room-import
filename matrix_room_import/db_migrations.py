@@ -29,6 +29,7 @@ def check_done_migrations(conninfo: PathLike) -> list[str]:
     names: list[str] = []
     for record in cur:
         names.append(record[0])
+    conn.close()
     return names
 
 
@@ -37,6 +38,7 @@ def update_migration_table(conninfo: PathLike, migration_name: str):
     cur = conn.cursor()
     cur.execute("INSERT INTO migrations (name) VALUES (?)", (migration_name,))
     conn.commit()
+    conn.close()
 
 
 def execute_migration(conninfo: PathLike, migration: Path):
@@ -48,6 +50,7 @@ def execute_migration(conninfo: PathLike, migration: Path):
     with open(migration, "rb") as f:
         cur.executescript(f.read().decode())
     conn.commit()
+    conn.close()
 
 
 def execute_migrations(conninfo: PathLike):
