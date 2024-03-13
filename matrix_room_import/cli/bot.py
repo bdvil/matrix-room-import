@@ -7,7 +7,7 @@ import click
 from aiohttp import web
 from aiohttp.web import Application
 
-from matrix_room_import import LOGGER
+from matrix_room_import import LOGGER, PROJECT_DIR
 from matrix_room_import.appkeys import client_key, config_key, sync_sem_key
 from matrix_room_import.appservice import server
 from matrix_room_import.appservice.client import Client
@@ -26,6 +26,7 @@ from matrix_room_import.appservice.types import (
 )
 from matrix_room_import.concurrency_events import SyncTaskSems
 from matrix_room_import.config import Config, load_config
+from matrix_room_import.db_migrations import execute_migrations
 from matrix_room_import.export_file_model import (
     ExportFile,
     GuestAccessEvent,
@@ -409,21 +410,23 @@ async def main():
     config = load_config()
     LOGGER.debug("CONFIG: %s", config.model_dump())
 
-    client = Client(
-        config.homeserver_url, config.as_token, config.as_id, config.admin_token
-    )
+    execute_migrations(PROJECT_DIR / config.database_location)
 
-    sync_tasks_sem = SyncTaskSems()
-
-    server_task = asyncio.create_task(
-        http_server_task_runner(config, client, sync_tasks_sem)
-    )
-    import_task = asyncio.create_task(
-        import_task_runner(client, config, sync_tasks_sem)
-    )
-
-    await server_task
-    await import_task
+    # client = Client(
+    #     config.homeserver_url, config.as_token, config.as_id, config.admin_token
+    # )
+    #
+    # sync_tasks_sem = SyncTaskSems()
+    #
+    # server_task = asyncio.create_task(
+    #     http_server_task_runner(config, client, sync_tasks_sem)
+    # )
+    # import_task = asyncio.create_task(
+    #     import_task_runner(client, config, sync_tasks_sem)
+    # )
+    #
+    # await server_task
+    # await import_task
 
 
 @click.command("serve")

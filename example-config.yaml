@@ -15,3 +15,5 @@ admin_token: admin access token
 
 path_to_import_files: "./path/to/folder"
 port: 8181
+
+database_location: ./data/data.db

@@ -25,11 +25,11 @@ class Config(BaseModel):
 
     port: int
 
-    delete_rooms: Sequence[str] = Field(default_factory=list)
-
     bot_allow_users: Sequence[str] = Field(default_factory=list)
 
     space_id: str | None = None
+
+    database_location: str
 
 
 def load_config() -> Config:
