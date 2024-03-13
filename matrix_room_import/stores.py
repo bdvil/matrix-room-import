@@ -184,6 +184,7 @@ class QueueStore(DBStore[int, Process]):
 class RoomEvent:
     event_id: str
     room_id: str
+    users: list[str]
 
 
 class RoomsToRemoveStore(DBStore[int, RoomEvent]):
@@ -194,8 +195,13 @@ class RoomsToRemoveStore(DBStore[int, RoomEvent]):
     def load_data(self) -> dict[int, RoomEvent]:
         conn = sqlite3.connect(self.conninfo)
         cur = conn.cursor()
-        data = cur.execute("SELECT id, event_id, room_id FROM rooms_to_remove")
-        out = {d[0]: RoomEvent(d[1], d[2]) for d in data}
+        data = cur.execute(
+            "SELECT id, event_id, room_id, userlist FROM rooms_to_remove"
+        )
+        out = {
+            d[0]: RoomEvent(d[1], d[2], d[3].split(",") if d[3] != "" else [])
+            for d in data
+        }
         conn.close()
         return out
 
@@ -203,8 +209,8 @@ class RoomsToRemoveStore(DBStore[int, RoomEvent]):
         conn = sqlite3.connect(self.conninfo)
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO rooms_to_remove (event_id, room_id) VALUES (?, ?)",
-            (data.event_id, data.room_id),
+            "INSERT INTO rooms_to_remove (event_id, room_id, userlist) VALUES (?, ?, ?)",
+            (data.event_id, data.room_id, ",".join(data.users)),
         )
         conn.commit()
         row_id = cur.lastrowid
@@ -238,6 +244,12 @@ class RoomsToRemoveStore(DBStore[int, RoomEvent]):
         for event in self.data.values():
             if event.event_id == event_id:
                 return event.room_id
+        raise ValueError("event_id not in db")
+
+    def get_users(self, event_id: str) -> list[str]:
+        for event in self.data.values():
+            if event.event_id == event_id:
+                return event.users
         raise ValueError("event_id not in db")
 
     def pop_from_event(self, event_id: str) -> RoomEvent:

@@ -101,7 +101,12 @@ async def signal_import_room_started(config: Config, process: Process, client: C
 
 
 async def signal_import_ended(
-    config: Config, process: Process, client: Client, new_room_id: str, old_room_id: str
+    config: Config,
+    process: Process,
+    client: Client,
+    new_room_id: str,
+    old_room_id: str,
+    users_in_room: list[str],
 ):
     rooms_to_remove = get_rooms_to_remove_store(config)
     bot_userid = f"@{config.as_id}:{config.server_name}"
@@ -125,7 +130,7 @@ async def signal_import_ended(
         ),
         user_id=bot_userid,
     )
-    rooms_to_remove.append(RoomEvent(process.event_id, old_room_id))
+    rooms_to_remove.append(RoomEvent(process.event_id, old_room_id, users_in_room))
 
 
 async def signal_import_failed(
@@ -242,13 +247,20 @@ async def populate_message(
     new_room_id: str,
     room_creator_id: str,
     file_paths: dict[str, str],
-):
+) -> list[str]:
     new_event_ids: dict[str, str] = {}
+    users_in_room: list[str] = []
+
     for message in data.messages:
         print(message.type)
         print(type(message))
         print(message.content)
         if isinstance(message, MemberEvent):
+            if message.content.membership == "join":
+                users_in_room.append(message.sender)
+            elif message.content.membership in ["leave", "ban"]:
+                users_in_room.remove(message.sender)
+
             if (
                 message.sender == room_creator_id
                 and message.content.membership == "join"
@@ -261,7 +273,7 @@ async def populate_message(
                     membership=message.content.membership,
                     displayname=message.content.displayname,
                     avatar_url=message.content.avatar_url,
-                ).model_dump(),
+                ).model_dump(exclude_defaults=True, by_alias=True),
                 message.state_key,
                 user_id=message.sender,
                 ts=message.origin_server_ts,
@@ -326,6 +338,17 @@ async def populate_message(
             )
             if isinstance(resp, RoomSendEventResponse):
                 new_event_ids[message.event_id] = resp.event_id
+    return users_in_room
+    for user in users_in_room:
+        resp = await client.send_state_event(
+            "m.room.member",
+            get_room_id(data),
+            MemberContent(membership="leave").model_dump(
+                exclude_defaults=True, by_alias=True
+            ),
+            user,
+            user_id=user,
+        )
 
 
 async def http_server_task_runner(
@@ -399,7 +422,7 @@ async def import_task_runner(
                         )
                         print(resp)
 
-                    await populate_message(
+                    users = await populate_message(
                         client,
                         data,
                         room_resp.room_id,
@@ -407,7 +430,7 @@ async def import_task_runner(
                         file_paths,
                     )
                     await signal_import_ended(
-                        config, process, client, room_resp.room_id, old_room_id
+                        config, process, client, room_resp.room_id, old_room_id, users
                     )
                 else:
                     await signal_import_failed(config, process, client, room_resp)

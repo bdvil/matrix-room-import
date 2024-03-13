@@ -19,6 +19,7 @@ from matrix_room_import.appservice.types import (
 )
 from matrix_room_import.concurrency_events import SyncTaskSems
 from matrix_room_import.config import Config
+from matrix_room_import.export_file_model import MemberContent
 from matrix_room_import.stores import (
     Process,
     get_bot_rooms_store,
@@ -208,8 +209,18 @@ async def handle_room_message(
     ):
         relates_to = event.content["m.relates_to"]
         print("Deleting room")
-        room_id = rooms_to_remove.pop_from_event(relates_to["event_id"]).room_id
-        await client.delete_room(room_id, DeleteRoomBody(purge=True))
+        room_event = rooms_to_remove.pop_from_event(relates_to["event_id"])
+        for user in room_event.users:
+            resp = await client.send_state_event(
+                "m.room.member",
+                room_event.room_id,
+                MemberContent(membership="leave").model_dump(
+                    exclude_defaults=True, by_alias=True
+                ),
+                user,
+                user_id=user,
+            )
+        await client.delete_room(room_event.room_id, DeleteRoomBody(purge=True))
 
         resp = await client.send_event(
             "m.room.message",
