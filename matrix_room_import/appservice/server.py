@@ -21,10 +21,11 @@ from matrix_room_import.concurrency_events import SyncTaskSems
 from matrix_room_import.config import Config
 from matrix_room_import.stores import (
     Process,
-    process_queue,
-    room_stores,
-    rooms_to_remove,
-    txn_store,
+    get_bot_rooms_store,
+    get_config_store,
+    get_queue_store,
+    get_rooms_to_remove_store,
+    get_txn_store,
 )
 
 
@@ -54,6 +55,8 @@ async def handle_events(
     txn_id: str,
     sync_tasks_sem: SyncTaskSems,
 ):
+    bot_rooms_store = get_bot_rooms_store(config)
+
     for event in events:
         LOGGER.debug(f"Transaction {txn_id} type= {event.type}")
         LOGGER.debug("%s", event)
@@ -62,7 +65,7 @@ async def handle_events(
             case "m.room.member":
                 content = RoomMember(**event.content)
                 await handle_room_member(config, client, event, content)
-            case "m.room.message" if event.room_id in room_stores:
+            case "m.room.message" if bot_rooms_store.has(event.room_id):
                 content = RoomMessage(**event.content)
                 await handle_room_message(
                     config, client, event, content, sync_tasks_sem
@@ -79,8 +82,9 @@ async def handle_transaction(request: web.Request) -> web.Response:
         return web.json_response({}, status=403)
 
     txn_id = request.match_info["txnId"]
+    txn_store = get_txn_store(config)
 
-    if txn_id in txn_store:
+    if txn_store.has(txn_id):
         LOGGER.debug("Transaction already handled.")
         return web.json_response({}, status=200)
 
@@ -131,6 +135,7 @@ async def handle_room_member(
     event: types.ClientEvent,
     content: RoomMember,
 ):
+    bot_rooms_store = get_bot_rooms_store(config)
     bot_userid = f"@{config.as_id}:{config.server_name}"
     print("member event")
     print(event)
@@ -139,7 +144,7 @@ async def handle_room_member(
     if content.membership == MembershipEnum.invite and event.state_key == bot_userid:
         resp = await client.join_room(event.room_id, JoinRoomBody())
         if isinstance(resp, JoinRoomResponse):
-            room_stores.append(resp.room_id)
+            bot_rooms_store.append(resp.room_id)
             await send_help_message(config, client, resp.room_id, bot_userid)
 
         LOGGER.debug(resp)
@@ -152,6 +157,8 @@ async def handle_room_message(
     content: RoomMessage,
     concurrency: SyncTaskSems,
 ):
+    rooms_to_remove = get_rooms_to_remove_store(config)
+    queue_store = get_queue_store(config)
     bot_userid = f"@{config.as_id}:{config.server_name}"
     if event.sender == bot_userid or event.sender not in config.bot_allow_users:
         return
@@ -190,18 +197,19 @@ async def handle_room_message(
             ),
             user_id=bot_userid,
         )
+        config_store = get_config_store(config)
+        config_store.update_key("spaceId", config.space_id)
         return
 
     if (
         event.content.get("m.relates_to") is not None
-        and event.content["m.relates_to"]["event_id"] in rooms_to_remove
+        and rooms_to_remove.has_event(event.content["m.relates_to"]["event_id"])
         and "yes" in content.body.lower()
     ):
         relates_to = event.content["m.relates_to"]
         print("Deleting room")
-        room_id = rooms_to_remove[relates_to["event_id"]]
+        room_id = rooms_to_remove.pop_from_event(relates_to["event_id"]).room_id
         await client.delete_room(room_id, DeleteRoomBody(purge=True))
-        del rooms_to_remove[relates_to["event_id"]]
 
         resp = await client.send_event(
             "m.room.message",
@@ -211,7 +219,7 @@ async def handle_room_message(
                 body="Deleted.",
                 relates_to=RelatesTo(
                     rel_type="m.thread",
-                    event_id=event.event_id,
+                    event_id=event.content["m.relates_to"]["event_id"],
                     is_falling_back=True,
                 ),
             ),
@@ -241,7 +249,7 @@ async def handle_room_message(
             download_path, content.url, allow_redirect=False
         )
         if isinstance(resp, bool) and resp:
-            process_queue.append(
+            queue_store.append(
                 Process(
                     path=download_path,
                     room_id=event.room_id,

@@ -38,7 +38,13 @@ from matrix_room_import.export_file_model import (
     SpaceChildContent,
     TopicEvent,
 )
-from matrix_room_import.stores import Process, process_queue, rooms_to_remove
+from matrix_room_import.stores import (
+    Process,
+    RoomEvent,
+    get_config_store,
+    get_queue_store,
+    get_rooms_to_remove_store,
+)
 
 FILE_CONTENT_TYPES = {
     "png": "image/png",
@@ -97,6 +103,7 @@ async def signal_import_room_started(config: Config, process: Process, client: C
 async def signal_import_ended(
     config: Config, process: Process, client: Client, new_room_id: str, old_room_id: str
 ):
+    rooms_to_remove = get_rooms_to_remove_store(config)
     bot_userid = f"@{config.as_id}:{config.server_name}"
     await client.send_event(
         "m.room.message",
@@ -118,7 +125,7 @@ async def signal_import_ended(
         ),
         user_id=bot_userid,
     )
-    rooms_to_remove[process.event_id] = old_room_id
+    rooms_to_remove.append(RoomEvent(process.event_id, old_room_id))
 
 
 async def signal_import_failed(
@@ -345,11 +352,11 @@ async def http_server_task_runner(
 async def import_task_runner(
     client: Client, config: Config, sync_tasks_sem: SyncTaskSems
 ):
-    await client.delete_rooms(config.delete_rooms)
-
+    process_queue = get_queue_store(config)
     while True:
         await sync_tasks_sem.num_export_process_sem.acquire()
-        process = process_queue.pop(0)
+        print("YES")
+        process = process_queue.get_and_remove_next()
         if process.path.suffix == ".zip" or process.path.suffix == ".json":
             if process.path.suffix == ".zip":
                 data, files = load_zip_export(process.path)
@@ -412,21 +419,28 @@ async def main():
 
     execute_migrations(PROJECT_DIR / config.database_location)
 
-    # client = Client(
-    #     config.homeserver_url, config.as_token, config.as_id, config.admin_token
-    # )
-    #
-    # sync_tasks_sem = SyncTaskSems()
-    #
-    # server_task = asyncio.create_task(
-    #     http_server_task_runner(config, client, sync_tasks_sem)
-    # )
-    # import_task = asyncio.create_task(
-    #     import_task_runner(client, config, sync_tasks_sem)
-    # )
-    #
-    # await server_task
-    # await import_task
+    config_store = get_config_store(config)
+    space_id = config_store.from_key("spaceId")
+    if space_id is not None:
+        config.space_id = space_id
+
+    client = Client(
+        config.homeserver_url, config.as_token, config.as_id, config.admin_token
+    )
+
+    queue_store = get_queue_store(config)
+    sync_tasks_sem = SyncTaskSems(len(queue_store))
+    print(sync_tasks_sem.num_export_process_sem)
+
+    server_task = asyncio.create_task(
+        http_server_task_runner(config, client, sync_tasks_sem)
+    )
+    import_task = asyncio.create_task(
+        import_task_runner(client, config, sync_tasks_sem)
+    )
+
+    await server_task
+    await import_task
 
 
 @click.command("serve")
