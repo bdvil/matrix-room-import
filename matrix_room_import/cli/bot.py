@@ -12,6 +12,7 @@ from matrix_room_import.appkeys import client_key, config_key, sync_sem_key
 from matrix_room_import.appservice import server
 from matrix_room_import.appservice.client import Client
 from matrix_room_import.appservice.types import (
+    ClientEvent,
     CreateMediaResponse,
     CreateRoomBody,
     CreateRoomResponse,
@@ -20,7 +21,9 @@ from matrix_room_import.appservice.types import (
     ImageInfo,
     MsgType,
     RelatesTo,
+    RoomEventFilter,
     RoomMessage,
+    RoomMessagesResponse,
     RoomSendEventResponse,
     StateEvent,
 )
@@ -29,6 +32,7 @@ from matrix_room_import.config import Config, load_config
 from matrix_room_import.db_migrations import execute_migrations
 from matrix_room_import.export_file_model import (
     ExportFile,
+    GenericEvent,
     GuestAccessEvent,
     HistoryVisibilityEvent,
     JoinRulesEvent,
@@ -247,9 +251,10 @@ async def populate_message(
     new_room_id: str,
     room_creator_id: str,
     file_paths: dict[str, str],
-) -> list[str]:
+) -> tuple[list[str], dict[str, str]]:
     new_event_ids: dict[str, str] = {}
     users_in_room: list[str] = []
+    initial_creator_room_join = True
 
     for message in data.messages:
         print(message.type)
@@ -264,7 +269,9 @@ async def populate_message(
             if (
                 message.sender == room_creator_id
                 and message.content.membership == "join"
+                and initial_creator_room_join
             ):
+                initial_creator_room_join = False
                 continue
             resp = await client.send_state_event(
                 message.type,
@@ -280,6 +287,8 @@ async def populate_message(
             )
             if isinstance(resp, RoomSendEventResponse):
                 new_event_ids[message.event_id] = resp.event_id
+            else:
+                print("ERROR - ", resp)
         elif (
             isinstance(message, MessageEvent)
             and message.content.info.get("mimetype", None) is not None
@@ -308,6 +317,8 @@ async def populate_message(
             )
             if isinstance(resp, RoomSendEventResponse):
                 new_event_ids[message.event_id] = resp.event_id
+            else:
+                print("ERROR - ", resp)
         elif isinstance(message, MessageEvent) and message.content.file is None:
             print("MESSAGE")
             if message.content.relates_to is not None:
@@ -338,7 +349,76 @@ async def populate_message(
             )
             if isinstance(resp, RoomSendEventResponse):
                 new_event_ids[message.event_id] = resp.event_id
-    return users_in_room
+            else:
+                print("ERROR - ", resp)
+        elif isinstance(message, GenericEvent):
+            print("GENERIC")
+            resp = await client.send_event(
+                message.type,
+                new_room_id,
+                RoomMessage(**message.content),
+                user_id=message.sender,
+                ts=message.origin_server_ts,
+            )
+            if isinstance(resp, RoomSendEventResponse):
+                new_event_ids[message.event_id] = resp.event_id
+            else:
+                print("ERROR - ", resp)
+        else:
+            print("SKIPPED")
+            print(message)
+    return users_in_room, new_event_ids
+
+
+async def get_room_reactions(client: Client, room_id: str, user_id: str):
+    from_ = None
+    reactions: list[ClientEvent] = []
+    for _ in range(100):
+        old_room_messages = await client.get_room_messages(
+            room_id,
+            dir="f",
+            filter=RoomEventFilter(types=["m.reaction"]),
+            from_=from_,
+            limit=10,
+            user_id=user_id,
+        )
+        if isinstance(old_room_messages, RoomMessagesResponse):
+            from_ = old_room_messages.end
+            if from_ is None:
+                break
+            reactions.extend(old_room_messages.chunk)
+    return reactions
+
+
+async def populate_reactions(
+    client: Client,
+    new_room_id: str,
+    reactions: list[ClientEvent],
+    event_id_mapping: dict[str, str],
+):
+    print(event_id_mapping)
+    for reaction in reactions:
+        print("REACTION")
+        print(reaction)
+        if reaction.content["m.relates_to"]["event_id"] not in event_id_mapping.keys():
+            print("skip")
+            continue
+        await client.send_event(
+            "m.reaction",
+            new_room_id,
+            RoomMessage(
+                relates_to=RelatesTo(
+                    rel_type="m.annotation",
+                    event_id=event_id_mapping[
+                        reaction.content["m.relates_to"]["event_id"]
+                    ],
+                    key=reaction.content["m.relates_to"]["key"],
+                ),
+            ),
+            user_id=reaction.sender,
+            ts=reaction.origin_server_ts,
+        )
+    print("done")
 
 
 async def http_server_task_runner(
@@ -366,9 +446,9 @@ async def import_task_runner(
     client: Client, config: Config, sync_tasks_sem: SyncTaskSems
 ):
     process_queue = get_queue_store(config)
+
     while True:
         await sync_tasks_sem.num_export_process_sem.acquire()
-        print("YES")
         process = process_queue.get_and_remove_next()
         if process.path.suffix == ".zip" or process.path.suffix == ".json":
             if process.path.suffix == ".zip":
@@ -378,13 +458,11 @@ async def import_task_runner(
                 files: dict[str, bytes] = {}
             file_paths: dict[str, str] = {}
 
-            print(data)
             if data is not None:
                 old_room_id = get_room_id(data)
                 room_creator_id = get_room_creator_id(data)
 
                 mimetype_files = get_file_mimetype(data)
-                print(mimetype_files)
                 for filename, content in files.items():
                     mimetype = mimetype_files.get(filename, None)
                     resp = await client.create_and_upload_media(
@@ -392,9 +470,12 @@ async def import_task_runner(
                     )
                     if isinstance(resp, CreateMediaResponse):
                         file_paths[filename] = resp.content_uri
-                print(file_paths)
 
                 await signal_import_room_started(config, process, client)
+
+                room_reactions = await get_room_reactions(
+                    client, old_room_id, room_creator_id
+                )
 
                 room_resp = await create_room(client, data)
 
@@ -412,12 +493,15 @@ async def import_task_runner(
                         )
                         print(resp)
 
-                    users = await populate_message(
+                    users, event_id_mapping = await populate_message(
                         client,
                         data,
                         room_resp.room_id,
                         room_creator_id,
                         file_paths,
+                    )
+                    await populate_reactions(
+                        client, room_resp.room_id, room_reactions, event_id_mapping
                     )
                     await signal_import_ended(
                         config, process, client, room_resp.room_id, old_room_id, users
@@ -443,7 +527,6 @@ async def main():
 
     queue_store = get_queue_store(config)
     sync_tasks_sem = SyncTaskSems(len(queue_store))
-    print(sync_tasks_sem.num_export_process_sem)
 
     server_task = asyncio.create_task(
         http_server_task_runner(config, client, sync_tasks_sem)

@@ -102,11 +102,12 @@ class RelatesTo(BaseModel):
     rel_type: str | None = None
     event_id: str | None = None
     is_falling_back: bool | None = None
+    key: str | None = None
 
 
 class RoomMessage(BaseModel):
-    msgtype: MsgType
-    body: str
+    msgtype: MsgType | None = None
+    body: str | None = None
 
     format: str | None = None
     formatted_body: str | None = None
@@ -122,8 +123,10 @@ class RoomMessage(BaseModel):
     url: str | None = None
 
     @field_serializer("msgtype")
-    def serialize_msgtype(self, value: MsgType, _) -> str:
-        return value.value
+    def serialize_msgtype(self, value: MsgType | None, _) -> str | None:
+        if value is not None:
+            return value.value
+        return None
 
     @model_validator(mode="after")
     def room_id_validation(self):
@@ -216,6 +219,27 @@ class ClientEvent(Event):
 
 
 ArrayOfClientEvents = RootModel[Sequence[ClientEvent]]
+
+
+class RoomMessagesResponse(BaseModel):
+    chunk: Sequence[ClientEvent] = Field(default_factory=list)
+    end: str | None = None
+    start: str
+    state: Sequence[ClientEvent] = Field(default_factory=list)
+
+
+class RoomEventFilter(BaseModel):
+    contains_url: bool | None = None
+    include_redundant_members: bool | None = None
+    lazy_load_members: bool | None = None
+    limit: int | None = None
+    not_rooms: Sequence[str] | None = None
+    not_senders: Sequence[str] | None = None
+    not_types: Sequence[str] | None = None
+    rooms: Sequence[str] | None = None
+    senders: Sequence[str] | None = None
+    types: Sequence[str] | None = None
+    unread_thread_notifications: bool | None = None
 
 
 class ClientEvents(BaseModel):

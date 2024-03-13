@@ -104,9 +104,22 @@ class MessageEvent(EventBase):
     content: MessageContent
 
 
+class ReactionContent(BaseModel):
+    relates_to: RelatesTo | None = Field(alias="m.relates_to", default=None)
+
+
+class ReactionEvent(EventBase):
+    type: Literal["m.room.reaction"]
+    content: ReactionContent
+
+
+class SkippedEvent(EventBase):
+    type: Literal["m.room.encrypted"]
+    content: Any
+
+
 class GenericEvent(EventBase):
     type: Literal[
-        "m.room.encrypted",
         "org.matrix.msc3381.poll.start",
         "org.matrix.msc3381.poll.end",
     ]
@@ -134,6 +147,8 @@ Event = Annotated[
     | TopicEvent
     | SpaceChildEvent
     | MessageEvent
+    | ReactionEvent
+    | SkippedEvent
     | GenericEvent,
     Field(discriminator="type"),
 ]

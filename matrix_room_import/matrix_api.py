@@ -1,5 +1,7 @@
-from typing import Any
+from typing import Any, Literal
 from urllib import parse
+
+from matrix_room_import.appservice.types import RoomEventFilter
 
 
 def urlencode(data: dict[str, Any]) -> str:
@@ -158,6 +160,35 @@ def get_room_state(
         query_data["user_id"] = user_id
     query = urlencode(query_data)
     return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/state?{query}"
+
+
+def get_room_messages(
+    hs_url: str,
+    room_id: str,
+    dir: Literal["b", "f"],
+    filter: RoomEventFilter | None = None,
+    from_: str | None = None,
+    limit: int | None = None,
+    to: str | None = None,
+    user_id: str | None = None,
+) -> str:
+    query_data: dict[str, str] = {}
+    if dir is not None:
+        query_data["dir"] = dir
+    if filter is not None:
+        query_data["filter"] = filter.model_dump_json(
+            exclude_unset=True, by_alias=True
+        ).replace("\n", "")
+    if from_ is not None:
+        query_data["from"] = from_
+    if limit is not None:
+        query_data["limit"] = str(limit)
+    if to is not None:
+        query_data["to"] = to
+    if user_id is not None:
+        query_data["user_id"] = user_id
+    query = urlencode(query_data)
+    return sanitize_url(hs_url) + f"/_matrix/client/v3/rooms/{room_id}/messages?{query}"
 
 
 def redact_message(

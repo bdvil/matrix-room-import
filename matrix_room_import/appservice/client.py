@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from aiohttp import ClientResponse, ClientSession
@@ -26,7 +26,9 @@ from matrix_room_import.appservice.types import (
     ProfileResponse,
     RedactMessageBody,
     RedactMessageResponse,
+    RoomEventFilter,
     RoomMessage,
+    RoomMessagesResponse,
     RoomSendEventResponse,
     UploadMediaResponse,
     WhoAmIResponse,
@@ -373,7 +375,9 @@ class Client:
         )
         return data
 
-    async def get_room_state(self, room_id: str, user_id: str | None = None):
+    async def get_room_state(
+        self, room_id: str, user_id: str | None = None
+    ) -> ArrayOfClientEvents | ErrorResponse:
         url = matrix_api.get_room_state(self.hs_url, room_id, user_id)
         LOGGER.info("CLIENT get room state")
         response, data = await self.request(url, HTTPMethod.get)
@@ -389,6 +393,33 @@ class Client:
         )
         return data
 
+    async def get_room_messages(
+        self,
+        room_id: str,
+        dir: Literal["b", "f"],
+        filter: RoomEventFilter | None = None,
+        from_: str | None = None,
+        limit: int | None = None,
+        to: str | None = None,
+        user_id: str | None = None,
+    ) -> RoomMessagesResponse | ErrorResponse:
+        url = matrix_api.get_room_messages(
+            self.hs_url, room_id, dir, filter, from_, limit, to, user_id
+        )
+        LOGGER.info("CLIENT get room messages")
+        response, data = await self.request(url, HTTPMethod.get)
+
+        if response.status == 200:
+            data = RoomMessagesResponse(**data)
+            LOGGER.debug(data)
+            return data
+        data = ErrorResponse(**await response.json(), statuscode=response.status)
+        LOGGER.debug(
+            "CLIENT get room messages error data: %s",
+            {"headers": response.headers, "body": data},
+        )
+        return data
+
     async def redact_message(
         self,
         room_id: str,
@@ -397,7 +428,7 @@ class Client:
         txn_id: str | None = None,
         user_id: str | None = None,
         ts: int | None = None,
-    ):
+    ) -> RedactMessageResponse | ErrorResponse:
         txn_id = txn_id or new_txn()
         url = matrix_api.redact_message(
             self.hs_url, room_id, event_id, txn_id, user_id, ts

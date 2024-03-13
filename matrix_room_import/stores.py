@@ -9,73 +9,89 @@ from matrix_room_import import PROJECT_DIR
 from matrix_room_import.config import Config
 
 _T = TypeVar("_T")
-_U = TypeVar("_U")
 
 
-class Store(Generic[_T, _U], ABC):
+class Store(Generic[_T], ABC):
     def __init__(self) -> None:
         super().__init__()
-        self.data: dict[_T, _U] = self.load_data()
+        self.data: dict[int, _T] = self.load_data()
 
     @abstractmethod
-    def load_data(self) -> dict[_T, _U]: ...
+    def load_data(self) -> dict[int, _T]: ...
 
-    def __contains__(self, x: _T) -> bool:
+    def __contains__(self, x: int) -> bool:
         return x in self.data.keys()
 
-    def has(self, x: _U) -> bool:
+    def has(self, x: _T) -> bool:
         return x in self.data.values()
 
-    def __getitem__(self, x: _T) -> _U:
+    def __getitem__(self, x: int) -> _T:
         return self.data[x]
 
     def __len__(self) -> int:
         return len(self.data)
 
     @abstractmethod
-    def append(self, data: _U) -> _T: ...
+    def append(self, data: _T) -> int: ...
 
     @abstractmethod
-    def pop(self, x: _T) -> _U: ...
-
-
-class DBStore(Store[_T, _U], ABC):
-    @abstractmethod
-    def insert_db(self, data: _U) -> tuple[_T, _U]: ...
+    def pop(self, x: int) -> _T: ...
 
     @abstractmethod
-    def delete_db(self, data: _T) -> bool: ...
+    def update(self, x: int, new_data: _T) -> None: ...
 
-    def append(self, data: _U) -> _T:
+
+class DBStore(Store[_T]):
+    def __init__(self, conninfo: PathLike):
+        self.conninfo = conninfo
+        super().__init__()
+
+    def append(self, data: _T) -> int:
         row_id, row_data = self.insert_db(data)
         self.data[row_id] = row_data
         return row_id
 
-    def pop(self, x: _T) -> _U:
+    def pop(self, x: int) -> _T:
         if self.delete_db(x):
             out = self.data[x]
             del self.data[x]
             return out
         raise ValueError("Could not delete item")
 
+    def update(self, x: int, new_data: _T) -> None:
+        if self.update_db(x, new_data):
+            self.data[x] = new_data
+        raise ValueError("index does not exist")
 
-class TXNStore(DBStore[int, str]):
-    def __init__(self, conninfo: PathLike) -> None:
-        self.conninfo = conninfo
-        super().__init__()
+    @abstractmethod
+    def _load_data_query(self, cur: sqlite3.Cursor) -> sqlite3.Cursor: ...
 
-    def load_data(self) -> dict[int, str]:
+    @abstractmethod
+    def _extract_db_data(self, cur: sqlite3.Cursor) -> dict[int, _T]: ...
+
+    @abstractmethod
+    def _insert_data_query(self, cur: sqlite3.Cursor, data: _T) -> sqlite3.Cursor: ...
+
+    @abstractmethod
+    def _update_data_query(
+        self, cur: sqlite3.Cursor, idx: int, data: _T
+    ) -> sqlite3.Cursor: ...
+
+    @abstractmethod
+    def _delete_data_query(self, cur: sqlite3.Cursor, idx: int) -> sqlite3.Cursor: ...
+
+    def load_data(self) -> dict[int, _T]:
         conn = sqlite3.connect(self.conninfo)
         cur = conn.cursor()
-        data = cur.execute("SELECT id, comment FROM transactions")
-        out = {d[0]: d[1] for d in data}
+        data = self._load_data_query(cur)
+        out = self._extract_db_data(data)
         conn.close()
         return out
 
-    def insert_db(self, data: str) -> tuple[int, str]:
+    def insert_db(self, data: _T) -> tuple[int, _T]:
         conn = sqlite3.connect(self.conninfo)
         cur = conn.cursor()
-        cur.execute("INSERT INTO transactions (comment) VALUES (?)", (data,))
+        self._insert_data_query(cur, data)
         conn.commit()
         row_id = cur.lastrowid
         conn.close()
@@ -83,51 +99,64 @@ class TXNStore(DBStore[int, str]):
             raise Exception("Could not insert into DB")
         return row_id, data
 
-    def delete_db(self, data: int) -> bool:
+    def update_db(self, k: int, data: _T) -> bool:
         conn = sqlite3.connect(self.conninfo)
         cur = conn.cursor()
-        result = cur.execute("DELETE FROM transations WHERE id=?", (data,))
+        result = self._update_data_query(cur, k, data)
         conn.commit()
         row_count = result.rowcount
         conn.close()
         return row_count > 0
+
+    def delete_db(self, data: int) -> bool:
+        conn = sqlite3.connect(self.conninfo)
+        cur = conn.cursor()
+        result = self._delete_data_query(cur, data)
+        conn.commit()
+        row_count = result.rowcount
+        conn.close()
+        return row_count > 0
+
+
+class TXNStore(DBStore[str]):
+    def _load_data_query(self, cur: sqlite3.Cursor) -> sqlite3.Cursor:
+        return cur.execute("SELECT id, comment FROM transactions")
+
+    def _extract_db_data(self, cur: sqlite3.Cursor) -> dict[int, str]:
+        return {d[0]: d[1] for d in cur}
+
+    def _insert_data_query(self, cur: sqlite3.Cursor, data: str) -> sqlite3.Cursor:
+        return cur.execute("INSERT INTO transactions (comment) VALUES (?)", (data,))
+
+    def _update_data_query(
+        self, cur: sqlite3.Cursor, idx: int, data: str
+    ) -> sqlite3.Cursor:
+        raise NotImplementedError()
+
+    def _delete_data_query(self, cur: sqlite3.Cursor, idx: int) -> sqlite3.Cursor:
+        return cur.execute("DELETE FROM transations WHERE id=?", (idx,))
 
     def new_txn(self, comment: str) -> int:
         return self.append(comment)
 
 
-class BotRoomsStore(DBStore[int, str]):
-    def __init__(self, conninfo: PathLike) -> None:
-        self.conninfo = conninfo
-        super().__init__()
+class BotRoomsStore(DBStore[str]):
+    def _load_data_query(self, cur: sqlite3.Cursor) -> sqlite3.Cursor:
+        return cur.execute("SELECT id, room_id FROM bot_rooms")
 
-    def load_data(self) -> dict[int, str]:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        data = cur.execute("SELECT id, room_id FROM bot_rooms")
-        out = {d[0]: d[1] for d in data}
-        conn.close()
-        return out
+    def _extract_db_data(self, cur: sqlite3.Cursor) -> dict[int, str]:
+        return {d[0]: d[1] for d in cur}
 
-    def insert_db(self, data: str) -> tuple[int, str]:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        cur.execute("INSERT INTO bot_rooms (room_id) VALUES (?)", (data,))
-        conn.commit()
-        row_id = cur.lastrowid
-        conn.close()
-        if row_id is None:
-            raise Exception("Could not insert into DB")
-        return row_id, data
+    def _insert_data_query(self, cur: sqlite3.Cursor, data: str) -> sqlite3.Cursor:
+        return cur.execute("INSERT INTO bot_rooms (room_id) VALUES (?)", (data,))
 
-    def delete_db(self, data: int) -> bool:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        result = cur.execute("DELETE FROM bot_rooms WHERE id=?", (data,))
-        conn.commit()
-        row_count = result.rowcount
-        conn.close()
-        return row_count > 0
+    def _update_data_query(
+        self, cur: sqlite3.Cursor, idx: int, data: str
+    ) -> sqlite3.Cursor:
+        raise NotImplementedError()
+
+    def _delete_data_query(self, cur: sqlite3.Cursor, idx: int) -> sqlite3.Cursor:
+        return cur.execute("DELETE FROM bot_rooms WHERE id=?", (idx,))
 
 
 @dataclass
@@ -137,43 +166,28 @@ class Process:
     room_id: str
 
 
-class QueueStore(DBStore[int, Process]):
-    def __init__(self, conninfo: PathLike) -> None:
-        self.conninfo = conninfo
-        super().__init__()
+class QueueStore(DBStore[Process]):
+    def _load_data_query(self, cur: sqlite3.Cursor) -> sqlite3.Cursor:
+        return cur.execute("SELECT id, path, event_id, room_id FROM queue")
 
-    def load_data(self) -> dict[int, Process]:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        data = cur.execute("SELECT id, path, event_id, room_id FROM queue")
-        out = {
-            d[0]: Process(path=Path(d[1]), event_id=d[2], room_id=d[3]) for d in data
+    def _extract_db_data(self, cur: sqlite3.Cursor) -> dict[int, Process]:
+        return {
+            d[0]: Process(path=Path(d[1]), event_id=d[2], room_id=d[3]) for d in cur
         }
-        conn.close()
-        return out
 
-    def insert_db(self, data: Process) -> tuple[int, Process]:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        cur.execute(
+    def _insert_data_query(self, cur: sqlite3.Cursor, data: Process) -> sqlite3.Cursor:
+        return cur.execute(
             "INSERT INTO queue (path, event_id, room_id) VALUES (?, ?, ?)",
             (str(data.path.resolve()), data.event_id, data.room_id),
         )
-        conn.commit()
-        row_id = cur.lastrowid
-        conn.close()
-        if row_id is None:
-            raise Exception("Could not insert into DB")
-        return row_id, data
 
-    def delete_db(self, data: int) -> bool:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        result = cur.execute("DELETE FROM queue WHERE id=?", (data,))
-        conn.commit()
-        row_count = result.rowcount
-        conn.close()
-        return row_count > 0
+    def _update_data_query(
+        self, cur: sqlite3.Cursor, idx: int, data: Process
+    ) -> sqlite3.Cursor:
+        raise NotImplementedError()
+
+    def _delete_data_query(self, cur: sqlite3.Cursor, idx: int) -> sqlite3.Cursor:
+        return cur.execute("DELETE FROM queue WHERE id=?", (idx,))
 
     def get_and_remove_next(self) -> Process:
         k = next(iter(self.data.keys()))
@@ -187,46 +201,33 @@ class RoomEvent:
     users: list[str]
 
 
-class RoomsToRemoveStore(DBStore[int, RoomEvent]):
-    def __init__(self, conninfo: PathLike) -> None:
-        self.conninfo = conninfo
-        super().__init__()
-
-    def load_data(self) -> dict[int, RoomEvent]:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        data = cur.execute(
+class RoomsToRemoveStore(DBStore[RoomEvent]):
+    def _load_data_query(self, cur: sqlite3.Cursor) -> sqlite3.Cursor:
+        return cur.execute(
             "SELECT id, event_id, room_id, userlist FROM rooms_to_remove"
         )
-        out = {
-            d[0]: RoomEvent(d[1], d[2], d[3].split(",") if d[3] != "" else [])
-            for d in data
-        }
-        conn.close()
-        return out
 
-    def insert_db(self, data: RoomEvent) -> tuple[int, RoomEvent]:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        cur.execute(
+    def _extract_db_data(self, cur: sqlite3.Cursor) -> dict[int, RoomEvent]:
+        return {
+            d[0]: RoomEvent(d[1], d[2], d[3].split(",") if d[3] != "" else [])
+            for d in cur
+        }
+
+    def _insert_data_query(
+        self, cur: sqlite3.Cursor, data: RoomEvent
+    ) -> sqlite3.Cursor:
+        return cur.execute(
             "INSERT INTO rooms_to_remove (event_id, room_id, userlist) VALUES (?, ?, ?)",
             (data.event_id, data.room_id, ",".join(data.users)),
         )
-        conn.commit()
-        row_id = cur.lastrowid
-        conn.close()
-        if row_id is None:
-            raise Exception("Could not insert into DB")
-        return row_id, data
 
-    def delete_db(self, data: int) -> bool:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        result = cur.execute("DELETE FROM rooms_to_remove WHERE id=?", (data,))
-        conn.commit()
-        row_count = result.rowcount
-        conn.close()
-        return row_count > 0
+    def _update_data_query(
+        self, cur: sqlite3.Cursor, idx: int, data: RoomEvent
+    ) -> sqlite3.Cursor:
+        raise NotImplementedError()
+
+    def _delete_data_query(self, cur: sqlite3.Cursor, idx: int) -> sqlite3.Cursor:
+        return cur.execute("DELETE FROM rooms_to_remove WHERE id=?", (idx,))
 
     def has_event(self, event_id: str) -> bool:
         for event in self.data.values():
@@ -265,53 +266,31 @@ class ConfigEntry:
     value: str | None
 
 
-class ConfigStore(DBStore[int, ConfigEntry]):
-    def __init__(self, conninfo: PathLike) -> None:
-        self.conninfo = conninfo
-        super().__init__()
+class ConfigStore(DBStore[ConfigEntry]):
+    def _load_data_query(self, cur: sqlite3.Cursor) -> sqlite3.Cursor:
+        return cur.execute("SELECT id, key, value FROM config")
 
-    def load_data(self) -> dict[int, ConfigEntry]:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        data = cur.execute("SELECT id, key, value FROM config")
-        out = {d[0]: ConfigEntry(d[1], d[2]) for d in data}
-        conn.close()
-        return out
+    def _extract_db_data(self, cur: sqlite3.Cursor) -> dict[int, ConfigEntry]:
+        return {d[0]: ConfigEntry(d[1], d[2]) for d in cur}
 
-    def insert_db(self, data: ConfigEntry) -> tuple[int, ConfigEntry]:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        cur.execute(
+    def _insert_data_query(
+        self, cur: sqlite3.Cursor, data: ConfigEntry
+    ) -> sqlite3.Cursor:
+        return cur.execute(
             "INSERT INTO config (key, value) VALUES (?, ?)",
             (data.key, data.value),
         )
-        conn.commit()
-        row_id = cur.lastrowid
-        conn.close()
-        if row_id is None:
-            raise Exception("Could not insert into DB")
-        return row_id, data
 
-    def update_db(self, k: int, data: ConfigEntry) -> bool:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        result = cur.execute(
+    def _update_data_query(
+        self, cur: sqlite3.Cursor, idx: int, data: ConfigEntry
+    ) -> sqlite3.Cursor:
+        return cur.execute(
             "UPDATE config SET key=?, value=? WHERE id=?",
-            (data.key, data.value, k),
+            (data.key, data.value, idx),
         )
-        conn.commit()
-        row_count = result.rowcount
-        conn.close()
-        return row_count > 0
 
-    def delete_db(self, data: int) -> bool:
-        conn = sqlite3.connect(self.conninfo)
-        cur = conn.cursor()
-        result = cur.execute("DELETE FROM rooms_to_remove WHERE id=?", (data,))
-        conn.commit()
-        row_count = result.rowcount
-        conn.close()
-        return row_count > 0
+    def _delete_data_query(self, cur: sqlite3.Cursor, idx: int) -> sqlite3.Cursor:
+        return cur.execute("DELETE FROM config WHERE id=?", (idx,))
 
     def from_key(self, key: str) -> str | None:
         for config in self.data.values():
