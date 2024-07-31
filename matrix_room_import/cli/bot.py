@@ -264,7 +264,8 @@ async def populate_message(
             if message.content.membership == "join":
                 users_in_room.append(message.sender)
             elif message.content.membership in ["leave", "ban"]:
-                users_in_room.remove(message.sender)
+                if message.sender in users_in_room:
+                    users_in_room.remove(message.sender)
 
             if (
                 message.sender == room_creator_id
