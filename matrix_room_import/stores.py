@@ -298,7 +298,7 @@ class ConfigStore(DBStore[ConfigEntry]):
                 return config.value
         raise ValueError("key not in config")
 
-    def update_key(self, key: str, value: str) -> bool:
+    def update_key(self, key: str, value: str | None) -> bool:
         for k, config in self.data.items():
             if config.key == key:
                 return self.update_db(k, ConfigEntry(config.key, value))

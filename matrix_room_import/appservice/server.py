@@ -97,6 +97,9 @@ async def handle_transaction(request: web.Request) -> web.Response:
 
 
 async def send_help_message(config: Config, client: Client, room_id: str, user_id: str):
+    current_space_link = (
+        "null" if config.space_id is None else f"https://matrix.to/#/{config.space_id}"
+    )
     await client.send_event(
         "m.room.message",
         room_id,
@@ -108,9 +111,11 @@ On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
 Select the JSON format, "From the beginning" in Messages, a high size limit, and check
 the "Include Attachments" box.
 
-Commands:
-* `space-id !roomId:{config.server_name}`: set space to import rooms into. (Currently: https://matrix.to/#/{config.space_id}).
+First, set your admin access token with (make sure you are indeed an admin):
 * `set-admin-token syt_Ysddjk...`: set admin access-token so that old rooms can be deleted.
+
+Then set a specific space id that will contain the new room:
+* `space-id !roomId:{config.server_name}` (or `space-id null` for no space): set space to import rooms into. (Currently: {current_space_link}).
 """,
             format="org.matrix.custom.html",
             formatted_body=f"""Hello! Send me chat export files and I will import them back for you!<br>
@@ -119,11 +124,15 @@ On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
 Select the JSON format, "From the beginning" in Messages, a high size limit, and check
 the "Include Attachments" box.<br>
 <br>
-Commands:
+First, set your admin access token with (make sure you are indeed an admin):
 <ul>
-    <li><code>space-id !roomId:{config.server_name}</code>: set space to import rooms into. (Currently: https://matrix.to/#/{config.space_id}).</li>
     <li><code>set-admin-token syt_Ysddjk...</code>: set admin access-token so that old rooms can be deleted.</li>
+</ul>
+<br>
+Then set a specific space id that will contain the new room:
 <ul>
+    <li><code>space-id !roomId:{config.server_name}</code> (or <code>space-id null</code> for no space): set space to import rooms into. (Currently: {current_space_link}).</li>
+</ul>
 """,
         ),
         user_id=user_id,
@@ -163,6 +172,8 @@ async def handle_room_message(
     bot_userid = f"@{config.as_id}:{config.server_name}"
     if event.sender == bot_userid or event.sender not in config.bot_allow_users:
         return
+    if content.body is None:
+        return
 
     if content.body.lower()[:15] == "set-admin-token":
         config.admin_token = content.body.split(" ")[1]
@@ -188,7 +199,10 @@ async def handle_room_message(
         return
 
     if content.body.lower()[:8] == "space-id":
-        config.space_id = content.body.split(" ")[1]
+        space_id = content.body.split(" ")[1]
+        if space_id.lower() == "null":
+            space_id = None
+        config.space_id = space_id
         resp = await client.send_event(
             "m.room.message",
             event.room_id,

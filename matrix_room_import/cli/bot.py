@@ -519,8 +519,7 @@ async def main():
 
     config_store = get_config_store(config)
     space_id = config_store.from_key("spaceId")
-    if space_id is not None:
-        config.space_id = space_id
+    config.space_id = space_id
 
     client = Client(
         config.homeserver_url, config.as_token, config.as_id, config.admin_token
