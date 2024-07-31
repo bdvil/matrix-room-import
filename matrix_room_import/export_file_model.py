@@ -122,6 +122,7 @@ class GenericEvent(EventBase):
     type: Literal[
         "org.matrix.msc3381.poll.start",
         "org.matrix.msc3381.poll.end",
+        "m.room.power_levels",
     ]
     content: Any
 
