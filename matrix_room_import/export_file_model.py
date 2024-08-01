@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Discriminator, Field, Tag
 
 from matrix_room_import.appservice.types import Mentions, MsgType, RelatesTo
 
@@ -114,16 +114,12 @@ class ReactionEvent(EventBase):
 
 
 class SkippedEvent(EventBase):
-    type: Literal["m.room.encrypted"]
+    type: str
     content: Any
 
 
 class GenericEvent(EventBase):
-    type: Literal[
-        "org.matrix.msc3381.poll.start",
-        "org.matrix.msc3381.poll.end",
-        "m.room.power_levels",
-    ]
+    type: str
     content: Any
 
 
@@ -138,20 +134,49 @@ class SpaceChildEvent(StateEventBase):
     content: SpaceChildContent
 
 
+skipped_event_types = ["m.room.encrypted"]
+
+event_types = [
+    "m.room.member",
+    "m.space.child",
+    "m.room.encrypted",
+    "m.room.reaction",
+    "m.room.message",
+    "m.room.topic",
+    "m.room.name",
+    "m.room.history_visibility",
+    "m.room.join_rules",
+    "m.room.guest_access",
+    "m.room.encryption",
+]
+
+
+def get_event_type(event_type) -> str:
+    if isinstance(event_type, dict):
+        t = event_type.get("type", "__default__")
+    else:
+        t = getattr(event_type, "type", "__default__")
+    if t in skipped_event_types:
+        return "__skipped__"
+    if t in event_type:
+        return t
+    return "__default__"
+
+
 Event = Annotated[
-    MemberEvent
-    | EncryptionEvent
-    | GuestAccessEvent
-    | JoinRulesEvent
-    | HistoryVisibilityEvent
-    | RoomNameEvent
-    | TopicEvent
-    | SpaceChildEvent
-    | MessageEvent
-    | ReactionEvent
-    | SkippedEvent
-    | GenericEvent,
-    Field(discriminator="type"),
+    Annotated[MemberEvent, Tag("m.room.member")]
+    | Annotated[EncryptionEvent, Tag("m.room.encrypted")]
+    | Annotated[GuestAccessEvent, Tag("m.room.guest_access")]
+    | Annotated[JoinRulesEvent, Tag("m.room.join_rules")]
+    | Annotated[HistoryVisibilityEvent, Tag("m.room.history_visibility")]
+    | Annotated[RoomNameEvent, Tag("m.room.name")]
+    | Annotated[TopicEvent, Tag("m.room.topic")]
+    | Annotated[SpaceChildEvent, Tag("m.space.child")]
+    | Annotated[MessageEvent, Tag("m.room.message")]
+    | Annotated[ReactionEvent, Tag("m.room.reaction")]
+    | Annotated[SkippedEvent, Tag("__skipped__")]
+    | Annotated[GenericEvent, Tag("__default__")],
+    Field(discriminator=Discriminator(get_event_type)),
 ]
 
 
