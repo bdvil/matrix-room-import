@@ -107,7 +107,7 @@ async def send_help_message(config: Config, client: Client, room_id: str, user_i
             msgtype=MsgType.text,
             body=f"""Hello! Send me chat export files and I will import them back for you!
 
-On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
+On element, go on ℹ️ "Room Info" on the top-right, then "Export Chat".
 Select the JSON format, "From the beginning" in Messages, a high size limit, and check
 the "Include Attachments" box.
 
@@ -120,7 +120,7 @@ Then set a specific space id that will contain the new room:
             format="org.matrix.custom.html",
             formatted_body=f"""Hello! Send me chat export files and I will import them back for you!<br>
 <br>
-On element, go on ℹ️ "Room Info" on the top-lright, then "Export Chat".
+On element, go on ℹ️ "Room Info" on the top-right, then "Export Chat".
 Select the JSON format, "From the beginning" in Messages, a high size limit, and check
 the "Include Attachments" box.<br>
 <br>
@@ -151,7 +151,7 @@ async def handle_room_member(
     print(event)
     if event.sender not in config.bot_allow_users:
         LOGGER.error(
-            "USER is not allowed to talk to the bot. "
+            "USER is not allowed to talk to the bot."
             "Only users in `config.bot_allowed_users`."
         )
         return

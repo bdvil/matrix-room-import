@@ -1,8 +1,10 @@
 from collections.abc import Sequence
+from logging import info
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Discriminator, Field, Tag
 
+from matrix_room_import import LOGGER
 from matrix_room_import.appservice.types import Mentions, MsgType, RelatesTo
 
 
@@ -138,8 +140,8 @@ skipped_event_types = ["m.room.encrypted"]
 
 event_types = [
     "m.room.member",
+    "m.room.encryption",
     "m.space.child",
-    "m.room.encrypted",
     "m.room.reaction",
     "m.room.message",
     "m.room.topic",
@@ -148,6 +150,7 @@ event_types = [
     "m.room.join_rules",
     "m.room.guest_access",
     "m.room.encryption",
+    "__default__",
 ]
 
 
@@ -158,14 +161,14 @@ def get_event_type(event_type) -> str:
         t = getattr(event_type, "type", "__default__")
     if t in skipped_event_types:
         return "__skipped__"
-    if t in event_type:
+    if t in event_types:
         return t
     return "__default__"
 
 
 Event = Annotated[
     Annotated[MemberEvent, Tag("m.room.member")]
-    | Annotated[EncryptionEvent, Tag("m.room.encrypted")]
+    | Annotated[EncryptionEvent, Tag("m.room.encryption")]
     | Annotated[GuestAccessEvent, Tag("m.room.guest_access")]
     | Annotated[JoinRulesEvent, Tag("m.room.join_rules")]
     | Annotated[HistoryVisibilityEvent, Tag("m.room.history_visibility")]
@@ -176,7 +179,7 @@ Event = Annotated[
     | Annotated[ReactionEvent, Tag("m.room.reaction")]
     | Annotated[SkippedEvent, Tag("__skipped__")]
     | Annotated[GenericEvent, Tag("__default__")],
-    Field(discriminator=Discriminator(get_event_type)),
+    Discriminator(get_event_type),
 ]
 
 

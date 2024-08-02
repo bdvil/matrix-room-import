@@ -80,6 +80,7 @@ def get_join_rule(data: ExportFile) -> str:
 
 def get_room_creator_id(data: ExportFile) -> str:
     for message in data.messages:
+        print(type(message))
         if (
             isinstance(message, MemberEvent)
             and message.content.displayname == data.room_creator
