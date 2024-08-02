@@ -150,6 +150,10 @@ async def handle_room_member(
     print("member event")
     print(event)
     if event.sender not in config.bot_allow_users:
+        LOGGER.error(
+            "USER is not allowed to talk to the bot. "
+            "Only users in `config.bot_allowed_users`."
+        )
         return
     if content.membership == MembershipEnum.invite and event.state_key == bot_userid:
         resp = await client.join_room(event.room_id, JoinRoomBody())
